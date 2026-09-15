@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, type PropsWithChildren } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 
 import { useStorageState } from '@/hooks/use-storage-state';
 import { apiUrl } from '@/lib/api';
@@ -6,6 +14,10 @@ import { apiUrl } from '@/lib/api';
 interface AuthContextValue {
   /** The bearer token, or null when signed out. Truthy = signed in. */
   session: string | null;
+  /** The signed-in user's own id (from GET /api/mobile/me), or null until
+   *  that resolves — the bearer token is an encrypted JWE, so there's no
+   *  way to read it out client-side without asking the backend. */
+  userId: string | null;
   isLoading: boolean;
   /** Resolves to an error message on failure, or null on success. */
   signIn: (email: string, password: string) => Promise<string | null>;
@@ -56,9 +68,37 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [session]
   );
 
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Clearing userId the instant session goes falsy (sign-out) is adjusted
+  // during render — React's documented pattern for "reset state when some
+  // other value changes" — rather than in the effect below, which only
+  // needs to own the actual async fetch.
+  const [prevSession, setPrevSession] = useState(session);
+  if (session !== prevSession) {
+    setPrevSession(session);
+    if (!session) setUserId(null);
+  }
+
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    authedFetch('/api/mobile/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((me) => {
+        if (!cancelled) setUserId(me?.id ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setUserId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session, authedFetch]);
+
   const value = useMemo(
-    () => ({ session, isLoading, signIn, signOut, authedFetch }),
-    [session, isLoading, signIn, signOut, authedFetch]
+    () => ({ session, userId, isLoading, signIn, signOut, authedFetch }),
+    [session, userId, isLoading, signIn, signOut, authedFetch]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
