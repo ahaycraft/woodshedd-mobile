@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 
@@ -283,7 +283,10 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scrollContent: {
     paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
+    // The web tab bar (app-tabs.web.tsx) floats over the content instead of
+    // pushing it down, so web needs extra clearance up top; native's own
+    // status bar is already handled by SafeAreaView.
+    paddingTop: Platform.select({ web: Spacing.six, default: Spacing.three }),
     paddingBottom: BottomTabInset + Spacing.three,
     gap: Spacing.three,
     alignSelf: 'center',

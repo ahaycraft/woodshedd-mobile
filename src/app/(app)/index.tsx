@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, type DateData } from 'react-native-calendars';
 
@@ -77,6 +77,18 @@ export default function CalendarScreen() {
     },
     [loadMonth]
   );
+
+  // react-native-calendars wraps onVisibleMonthsChange in a "skip the first
+  // render" hook internally, so it never fires for the initial month on
+  // mount — only on later navigation. Load the current month explicitly.
+  // Wrapped in .then() rather than called directly, same reasoning as the
+  // Availability screen: satisfies the lint rule that (correctly) flags an
+  // awaited async function's setState calls as if they ran synchronously
+  // in the effect.
+  useEffect(() => {
+    const now = new Date();
+    Promise.resolve().then(() => loadMonth(now.getFullYear(), now.getMonth() + 1));
+  }, [loadMonth]);
 
   const markedDates = useMemo(() => {
     const marks: Marks = {};
@@ -183,6 +195,10 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scrollContent: {
     paddingHorizontal: Spacing.three,
+    // The web tab bar (app-tabs.web.tsx) floats over the content instead of
+    // pushing it down, so web needs extra clearance up top; native's own
+    // status bar is already handled by SafeAreaView.
+    paddingTop: Platform.select({ web: Spacing.six, default: Spacing.three }),
     paddingBottom: BottomTabInset + Spacing.three,
     gap: Spacing.three,
     alignSelf: 'center',
