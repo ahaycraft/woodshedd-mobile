@@ -3,6 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
+import { AccountButton } from '@/components/account-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -85,9 +86,12 @@ export default function SongsScreen() {
             <ThemedText type="title" style={styles.pageTitle}>
               Songs
             </ThemedText>
-            <Pressable onPress={() => router.push('/songs/new')} style={styles.addButton}>
-              <ThemedText style={styles.addButtonText}>+ Add</ThemedText>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable onPress={() => router.push('/songs/new')} style={styles.addButton}>
+                <ThemedText style={styles.addButtonText}>+ Add</ThemedText>
+              </Pressable>
+              <AccountButton />
+            </View>
           </View>
 
           {loading ? (
@@ -135,6 +139,7 @@ const styles = StyleSheet.create({
   },
   pageHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   pageTitle: { fontSize: 28, lineHeight: 34 },
+  headerActions: { flexDirection: 'row', gap: Spacing.four },
   addButton: { paddingVertical: Spacing.one, paddingHorizontal: Spacing.two },
   addButtonText: { color: '#208AEF', fontWeight: '600' },
   section: { gap: Spacing.two },

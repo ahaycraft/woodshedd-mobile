@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, type DateData } from 'react-native-calendars';
 import { router } from 'expo-router';
 
+import { AccountButton } from '@/components/account-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -46,7 +47,102 @@ function monthRange(year: number, month: number) {
 }
 
 type Dot = { key: string; color: string };
-type Marks = Record<string, { marked: boolean; dots: Dot[]; selected?: boolean; selectedColor?: string }>;
+type DayMark = {
+  marked: boolean;
+  dots: Dot[];
+  selected?: boolean;
+  selectedColor?: string;
+  /** At least one band member is unavailable this day — drawn as a ring
+   *  around the day number (see DayCell) rather than mixed in with the
+   *  event dots, so it doesn't read as just another show. */
+  unavailable?: boolean;
+};
+type Marks = Record<string, DayMark>;
+
+// Matches react-native-calendars' own Day sizing (calendar/day/basic/style.js
+// and calendar/day/dot/style.js) so this custom renderer lines up with the
+// rest of the grid.
+const DAY_SIZE = 32;
+const RING_SIZE = 24;
+
+function DayCell({
+  date,
+  state,
+  marking,
+  onPress,
+  theme,
+}: {
+  date?: DateData;
+  state?: string;
+  // Deliberately weaker than DayMark (every field optional, `dots`
+  // untyped) — this is react-native-calendars' own MarkingProps at
+  // runtime, and TS requires a dayComponent's props to accept that
+  // exact shape, not just the narrower one this screen constructs.
+  marking?: {
+    marked?: boolean;
+    dots?: { key?: string; color: string }[];
+    selected?: boolean;
+    selectedColor?: string;
+    unavailable?: boolean;
+  };
+  onPress?: (date?: DateData) => void;
+  theme?: {
+    dayTextColor?: string;
+    textDisabledColor?: string;
+    todayTextColor?: string;
+    selectedDayTextColor?: string;
+  };
+}) {
+  if (!date) return null;
+  const isSelected = !!marking?.selected;
+  const isToday = state === 'today';
+  const isDisabled = state === 'disabled';
+
+  const textColor = isSelected
+    ? theme?.selectedDayTextColor
+    : isDisabled
+      ? theme?.textDisabledColor
+      : isToday
+        ? theme?.todayTextColor
+        : theme?.dayTextColor;
+
+  return (
+    <Pressable
+      onPress={() => onPress?.(date)}
+      style={[
+        dayStyles.base,
+        isSelected && { backgroundColor: marking?.selectedColor, borderRadius: DAY_SIZE / 2 },
+      ]}>
+      <View style={[dayStyles.ring, marking?.unavailable && dayStyles.ringUnavailable]}>
+        <Text allowFontScaling={false} style={[dayStyles.text, { color: textColor }]}>
+          {date.day}
+        </Text>
+      </View>
+      <View style={dayStyles.dotsRow}>
+        {marking?.dots?.map((d) => (
+          <View key={d.key} style={[dayStyles.dot, { backgroundColor: d.color }]} />
+        ))}
+      </View>
+    </Pressable>
+  );
+}
+
+const dayStyles = StyleSheet.create({
+  base: { width: DAY_SIZE, height: DAY_SIZE, alignItems: 'center' },
+  ring: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  ringUnavailable: { borderColor: UNAVAILABLE_COLOR },
+  text: { fontSize: 16 },
+  dotsRow: { flexDirection: 'row', height: 6 },
+  dot: { width: 4, height: 4, marginTop: 1, marginHorizontal: 1, borderRadius: 2 },
+});
 
 export default function CalendarScreen() {
   const { authedFetch } = useAuth();
@@ -103,7 +199,7 @@ export default function CalendarScreen() {
     for (const u of unavailable) {
       const day = u.date.slice(0, 10);
       const entry = marks[day] ?? { marked: true, dots: [] };
-      entry.dots.push({ key: u.id, color: UNAVAILABLE_COLOR });
+      entry.unavailable = true;
       marks[day] = entry;
     }
     if (selectedDate) {
@@ -134,14 +230,18 @@ export default function CalendarScreen() {
                 Loading…
               </ThemedText>
             )}
-            <Pressable onPress={() => router.push('/event/new')} style={styles.addButton}>
-              <ThemedText style={styles.addButtonText}>+ Add</ThemedText>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable onPress={() => router.push('/event/new')} style={styles.addButton}>
+                <ThemedText style={styles.addButtonText}>+ Add</ThemedText>
+              </Pressable>
+              <AccountButton />
+            </View>
           </View>
 
           <Calendar
             markingType="multi-dot"
             markedDates={markedDates}
+            dayComponent={DayCell}
             onDayPress={(day) => setSelectedDate(day.dateString)}
             onVisibleMonthsChange={onVisibleMonthsChange}
             theme={{
@@ -214,7 +314,8 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
   },
   header: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two },
-  addButton: { marginLeft: 'auto', paddingVertical: Spacing.one, paddingHorizontal: Spacing.two },
+  headerActions: { marginLeft: 'auto', flexDirection: 'row', gap: Spacing.four },
+  addButton: { paddingVertical: Spacing.one, paddingHorizontal: Spacing.two },
   addButtonText: { color: '#208AEF', fontWeight: '600' },
   title: { fontSize: 28, lineHeight: 34 },
   dayPanel: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },

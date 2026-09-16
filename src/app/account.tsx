@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -55,12 +55,8 @@ export default function AccountScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <ThemedText type="title" style={styles.title}>
-            Account
-          </ThemedText>
-
           {!profile ? (
             <ThemedText type="small" themeColor="textSecondary">
               Loading…
@@ -130,15 +126,12 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: Spacing.three,
-    paddingTop: Platform.select({ web: Spacing.six, default: Spacing.three }),
-    paddingBottom: BottomTabInset + Spacing.three,
+    padding: Spacing.three,
     gap: Spacing.four,
     alignSelf: 'center',
     width: '100%',
     maxWidth: MaxContentWidth,
   },
-  title: { fontSize: 28, lineHeight: 34 },
   section: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.three },
   field: { gap: Spacing.one },
   input: {

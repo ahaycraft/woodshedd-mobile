@@ -9,6 +9,10 @@ export default function ReleasesLayout() {
         name="new"
         options={{ title: 'New Release', headerBackTitle: 'Releases', presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="[id]/add-songs"
+        options={{ title: 'Add Songs', headerBackTitle: 'Release', presentation: 'modal' }}
+      />
     </Stack>
   );
 }

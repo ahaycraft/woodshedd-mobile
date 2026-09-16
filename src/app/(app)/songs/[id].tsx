@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -296,11 +296,13 @@ export default function SongScreen() {
               {song.tracks.length > 0 && (
                 <View style={styles.chipRow}>
                   {song.tracks.map((t) => (
-                    <View key={t.release.id} style={styles.chip}>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {t.release.title}
-                      </ThemedText>
-                    </View>
+                    <Pressable key={t.release.id} onPress={() => router.push(`/releases/${t.release.id}`)}>
+                      <View style={styles.releaseChip}>
+                        <ThemedText type="small" style={styles.releaseChipText}>
+                          💿 {t.release.title}
+                        </ThemedText>
+                      </View>
+                    </Pressable>
                   ))}
                 </View>
               )}
@@ -403,12 +405,13 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  chip: {
-    backgroundColor: 'rgba(128,128,128,0.2)',
+  releaseChip: {
+    backgroundColor: 'rgba(60,135,247,0.15)',
     borderRadius: Spacing.one,
     paddingHorizontal: Spacing.two,
     paddingVertical: 2,
   },
+  releaseChipText: { color: '#3c87f7' },
   statusChip: {
     backgroundColor: 'rgba(128,128,128,0.2)',
     borderRadius: Spacing.four,

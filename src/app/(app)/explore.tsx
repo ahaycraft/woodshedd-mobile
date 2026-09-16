@@ -3,6 +3,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 
+import { AccountButton } from '@/components/account-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -135,9 +136,12 @@ export default function AvailabilityScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <ThemedText type="title" style={styles.title}>
-            Availability
-          </ThemedText>
+          <View style={styles.pageHeader}>
+            <ThemedText type="title" style={styles.title}>
+              Availability
+            </ThemedText>
+            <AccountButton />
+          </View>
 
           <ThemedView type="backgroundElement" style={styles.section}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
@@ -293,6 +297,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
   },
+  pageHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   title: { fontSize: 28, lineHeight: 34 },
   section: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.three },
   sectionTitle: { fontSize: 20, lineHeight: 26 },
