@@ -21,6 +21,14 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={!!session}>
           <Stack.Screen name="(app)" />
+          <Stack.Screen
+            name="event/[id]"
+            options={{ headerShown: true, title: 'Event', headerBackTitle: 'Calendar' }}
+          />
+          <Stack.Screen
+            name="event/new"
+            options={{ headerShown: true, title: 'New Event', headerBackTitle: 'Calendar', presentation: 'modal' }}
+          />
         </Stack.Protected>
         <Stack.Protected guard={!session}>
           <Stack.Screen name="sign-in" />

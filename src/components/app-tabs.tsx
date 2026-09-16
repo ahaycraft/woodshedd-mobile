@@ -27,6 +27,21 @@ export default function AppTabs() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="songs">
+        <NativeTabs.Trigger.Label>Songs</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="music.note" md="library_music" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="releases">
+        <NativeTabs.Trigger.Label>Releases</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="opticaldisc" md="album" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="account">
+        <NativeTabs.Trigger.Label>Account</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="person.crop.circle" md="account_circle" />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }

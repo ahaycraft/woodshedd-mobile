@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, type DateData } from 'react-native-calendars';
+import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -133,6 +134,9 @@ export default function CalendarScreen() {
                 Loading…
               </ThemedText>
             )}
+            <Pressable onPress={() => router.push('/event/new')} style={styles.addButton}>
+              <ThemedText style={styles.addButtonText}>+ Add</ThemedText>
+            </Pressable>
           </View>
 
           <Calendar
@@ -164,13 +168,17 @@ export default function CalendarScreen() {
             ) : (
               <>
                 {dayShows.map((show) => (
-                  <View key={show.id} style={styles.eventRow}>
-                    <View style={[styles.dot, { backgroundColor: paletteFor(show.type)[show.status] }]} />
-                    <ThemedText style={styles.eventText}>
-                      {show.title}
-                      {show.venue ? ` — ${show.venue}` : ''}
-                    </ThemedText>
-                  </View>
+                  <Pressable key={show.id} onPress={() => router.push(`/event/${show.id}`)}>
+                    {({ pressed }) => (
+                      <View style={[styles.eventRow, pressed && styles.eventRowPressed]}>
+                        <View style={[styles.dot, { backgroundColor: paletteFor(show.type)[show.status] }]} />
+                        <ThemedText style={styles.eventText}>
+                          {show.title}
+                          {show.venue ? ` — ${show.venue}` : ''}
+                        </ThemedText>
+                      </View>
+                    )}
+                  </Pressable>
                 ))}
                 {dayUnavailable.map((u) => (
                   <View key={u.id} style={styles.eventRow}>
@@ -206,9 +214,17 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
   },
   header: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.two },
+  addButton: { marginLeft: 'auto', paddingVertical: Spacing.one, paddingHorizontal: Spacing.two },
+  addButtonText: { color: '#208AEF', fontWeight: '600' },
   title: { fontSize: 28, lineHeight: 34 },
   dayPanel: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
-  eventRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.one,
+  },
+  eventRowPressed: { opacity: 0.6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   eventText: { flex: 1 },
 });

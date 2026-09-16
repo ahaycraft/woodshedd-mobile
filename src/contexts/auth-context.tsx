@@ -19,6 +19,18 @@ interface AuthContextValue {
    *  that resolves — the bearer token is an encrypted JWE, so there's no
    *  way to read it out client-side without asking the backend. */
   userId: string | null;
+  /** The signed-in user's band role, from the same call as `userId`. Used
+   *  to mirror the web app's canManage check (OWNER/ADMIN or the item's
+   *  own creator) for things like deleting someone else's comment. */
+  role: string | null;
+  /** Profile fields shown on the Account screen — same GET /api/mobile/me
+   *  call as userId/role, kept separate since nothing else in the app
+   *  needs them. */
+  profile: { name: string; email: string; phone: string | null } | null;
+  /** Re-runs GET /api/mobile/me and updates userId/role/profile. Call
+   *  after a profile edit so the Account screen reflects what was saved
+   *  without waiting for the next app launch. */
+  refreshProfile: () => Promise<void>;
   isLoading: boolean;
   /** Resolves to an error message on failure, or null on success. */
   signIn: (email: string, password: string) => Promise<string | null>;
@@ -70,6 +82,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [profile, setProfile] = useState<AuthContextValue['profile']>(null);
 
   // Clearing userId the instant session goes falsy (sign-out) is adjusted
   // during render — React's documented pattern for "reset state when some
@@ -78,24 +92,34 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [prevSession, setPrevSession] = useState(session);
   if (session !== prevSession) {
     setPrevSession(session);
-    if (!session) setUserId(null);
+    if (!session) {
+      setUserId(null);
+      setRole(null);
+      setProfile(null);
+    }
   }
+
+  const fetchMe = useCallback(async () => {
+    try {
+      const res = await authedFetch('/api/mobile/me');
+      const me = res.ok ? await res.json() : null;
+      setUserId(me?.id ?? null);
+      setRole(me?.role ?? null);
+      setProfile(me ? { name: me.name, email: me.email, phone: me.phone ?? null } : null);
+    } catch {
+      setUserId(null);
+      setRole(null);
+      setProfile(null);
+    }
+  }, [authedFetch]);
 
   useEffect(() => {
     if (!session) return;
-    let cancelled = false;
-    authedFetch('/api/mobile/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((me) => {
-        if (!cancelled) setUserId(me?.id ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setUserId(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [session, authedFetch]);
+    // Wrapped in .then() rather than called directly — same reasoning as
+    // the screens that fetch their own data: keeps the lint rule from
+    // treating this awaited call's setState calls as synchronous.
+    Promise.resolve().then(fetchMe);
+  }, [session, fetchMe]);
 
   // Fire-and-forget: register this device for push once signed in. No
   // component state depends on the outcome (permission denied, no EAS
@@ -118,8 +142,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [session, authedFetch]);
 
   const value = useMemo(
-    () => ({ session, userId, isLoading, signIn, signOut, authedFetch }),
-    [session, userId, isLoading, signIn, signOut, authedFetch]
+    () => ({
+      session,
+      userId,
+      role,
+      profile,
+      refreshProfile: fetchMe,
+      isLoading,
+      signIn,
+      signOut,
+      authedFetch,
+    }),
+    [session, userId, role, profile, fetchMe, isLoading, signIn, signOut, authedFetch]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
