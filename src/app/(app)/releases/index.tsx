@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { AccountButton } from '@/components/account-button';
 import { ThemedText } from '@/components/themed-text';
@@ -57,9 +57,11 @@ export default function ReleasesScreen() {
     setLoading(false);
   }, [authedFetch]);
 
-  useEffect(() => {
-    Promise.resolve().then(load);
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   return (
     <ThemedView style={styles.container}>

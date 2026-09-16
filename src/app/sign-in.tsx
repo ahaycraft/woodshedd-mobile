@@ -70,6 +70,10 @@ export default function SignInScreen() {
           disabled={submitting}>
           <ThemedText style={styles.buttonText}>{submitting ? 'Signing in…' : 'Sign in'}</ThemedText>
         </Pressable>
+
+        <Pressable onPress={() => router.push('/interest')} style={styles.interestLink}>
+          <ThemedText style={styles.interestLinkText}>Express interest</ThemedText>
+        </Pressable>
       </SafeAreaView>
     </ThemedView>
   );
@@ -101,4 +105,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: '#ffffff', fontWeight: '600' },
+  interestLink: { alignItems: 'center', marginTop: Spacing.two },
+  interestLinkText: { color: '#3c87f7', fontWeight: '600' },
 });

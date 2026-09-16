@@ -2,6 +2,8 @@
 // src/app/api/shows/route.ts, src/app/api/unavailability/route.ts, and
 // prisma/schema.prisma for the source of truth).
 
+export type InterestRole = 'ARTIST' | 'BAND' | 'PRODUCER' | 'MANAGER' | 'BOOKING_AGENT';
+
 export type EventTypeStr = 'SHOW' | 'RECORDING' | 'PRACTICE';
 export type ShowStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING';
@@ -100,6 +102,7 @@ export interface SongDetail {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  createdById: string;
   createdBy: { name: string | null };
   updatedBy: { name: string | null } | null;
   demos: SongDemo[];
@@ -136,6 +139,7 @@ export interface ReleaseDetail {
   status: ReleaseStatus;
   targetDate: string | null;
   notes: string | null;
+  createdById: string;
   createdBy: { name: string | null };
   tracks: ReleaseTrack[];
 }

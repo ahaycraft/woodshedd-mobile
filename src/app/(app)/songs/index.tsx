@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { AccountButton } from '@/components/account-button';
 import { ThemedText } from '@/components/themed-text';
@@ -64,12 +64,13 @@ export default function SongsScreen() {
     setLoading(false);
   }, [authedFetch]);
 
-  // Wrapped in .then() rather than called directly — see CalendarScreen /
-  // AvailabilityScreen for why: keeps the lint rule from treating this
-  // awaited call's setState calls as synchronous inside the effect.
-  useEffect(() => {
-    Promise.resolve().then(load);
-  }, [load]);
+  // useFocusEffect (not a plain mount effect) so returning from a delete,
+  // edit, or "+ Add" screen refreshes the list.
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const byStatus = new Map<SongStatus, SongListItem[]>();
   for (const song of songs) {

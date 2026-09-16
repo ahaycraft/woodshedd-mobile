@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { AccountButton } from '@/components/account-button';
 import { ThemedText } from '@/components/themed-text';
@@ -79,9 +79,11 @@ export default function EventsScreen() {
     setLoading(false);
   }, [authedFetch]);
 
-  useEffect(() => {
-    Promise.resolve().then(load);
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const filtered = useMemo(() => shows.filter((s) => s.type === activeType), [shows, activeType]);
   const upcoming = filtered.filter(isUpcoming);

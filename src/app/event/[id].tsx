@@ -1,22 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Calendar } from 'react-native-calendars';
 
+import { DeleteButton } from '@/components/delete-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { VenueSearch, type VenueResult } from '@/components/venue-search';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
-import type { AvailabilityStatus, ShowDetail } from '@/types/api';
+import { useTheme } from '@/hooks/use-theme';
+import type { AvailabilityStatus, EventTypeStr, ShowDetail } from '@/types/api';
 
+const CAN_MANAGE_ROLES = ['OWNER', 'ADMIN'];
 const statusColors: Record<string, string> = {
   CONFIRMED: '#4d7c63',
   PENDING: '#5b6f99',
   CANCELLED: '#a05a52',
 };
 const typeLabel: Record<string, string> = { RECORDING: 'Recording', PRACTICE: 'Practice' };
+const EDIT_TYPES: EventTypeStr[] = ['SHOW', 'PRACTICE', 'RECORDING'];
+const EDIT_TYPE_LABEL: Record<EventTypeStr, string> = {
+  SHOW: 'Show',
+  PRACTICE: 'Practice',
+  RECORDING: 'Recording',
+};
 const AVAILABLE_COLOR = '#4d7c63';
 const UNAVAILABLE_COLOR = '#a05a52';
+const BRAND_BLUE = '#208AEF';
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString(undefined, {
@@ -32,11 +44,42 @@ function formatTime(dateStr: string) {
 
 export default function EventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { authedFetch, userId } = useAuth();
+  const { authedFetch, userId, role } = useAuth();
+  const theme = useTheme();
 
   const [show, setShow] = useState<ShowDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState(false);
+
+  const [editing, setEditing] = useState(false);
+  const [editType, setEditType] = useState<EventTypeStr>('SHOW');
+  const [editTitle, setEditTitle] = useState('');
+  const [editDate, setEditDate] = useState<string | null>(null);
+  const [editVenue, setEditVenue] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editState, setEditState] = useState('');
+  const [editVenueAddress, setEditVenueAddress] = useState<string | null>(null);
+  const [editVenueCoords, setEditVenueCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [editNotes, setEditNotes] = useState('');
+  const [pickingDate, setPickingDate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  function onVenueChange(text: string) {
+    setEditVenue(text);
+    setEditVenueAddress(null);
+    setEditVenueCoords(null);
+  }
+
+  function onVenueSelect(result: VenueResult) {
+    setEditVenue(result.name);
+    setEditVenueAddress(result.address || null);
+    setEditVenueCoords(
+      result.lat != null && result.lng != null ? { lat: result.lat, lng: result.lng } : null
+    );
+    if (result.city) setEditCity(result.city);
+    if (result.state) setEditState(result.state);
+  }
 
   const load = useCallback(async () => {
     const res = await authedFetch(`/api/shows/${id}`);
@@ -47,6 +90,56 @@ export default function EventScreen() {
   useEffect(() => {
     Promise.resolve().then(load);
   }, [load]);
+
+  function startEditing(current: ShowDetail) {
+    setEditType(current.type);
+    setEditTitle(current.title);
+    setEditDate(current.date.slice(0, 10));
+    setEditVenue(current.venue ?? '');
+    setEditCity(current.city ?? '');
+    setEditState(current.state ?? '');
+    setEditVenueAddress(current.venueAddress ?? null);
+    setEditVenueCoords(null);
+    setEditNotes(current.notes ?? '');
+    setPickingDate(false);
+    setSaveError(null);
+    setEditing(true);
+  }
+
+  async function saveEdits() {
+    if (!editTitle.trim() || !editDate) return;
+    setSaving(true);
+    setSaveError(null);
+    const res = await authedFetch(`/api/shows/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: editType,
+        title: editTitle.trim(),
+        date: editDate,
+        venue: editVenue.trim() || null,
+        city: editCity.trim() || null,
+        state: editState.trim() || null,
+        venueAddress: editVenueAddress,
+        venueLat: editVenueCoords?.lat,
+        venueLng: editVenueCoords?.lng,
+        notes: editNotes.trim() || null,
+      }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setSaveError(body.error || "Couldn't save");
+      return;
+    }
+    await load();
+    setEditing(false);
+  }
+
+  async function deleteEvent() {
+    const res = await authedFetch(`/api/shows/${id}`, { method: 'DELETE' });
+    if (res.ok) router.back();
+  }
 
   async function respond(status: AvailabilityStatus) {
     setResponding(true);
@@ -102,37 +195,155 @@ export default function EventScreen() {
   const available = show.availability.filter((a) => a.status === 'AVAILABLE');
   const unavailable = show.availability.filter((a) => a.status === 'UNAVAILABLE');
   const pending = show.availability.filter((a) => a.status === 'PENDING');
+  const canManageEvent = show.createdBy.id === userId || (!!role && CAN_MANAGE_ROLES.includes(role));
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <ThemedText type="subtitle" style={styles.title}>
-              {show.title}
-            </ThemedText>
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, { backgroundColor: statusColors[show.status] }]} />
+          {editing ? (
+            <ThemedView type="backgroundElement" style={styles.section}>
               <ThemedText type="small" themeColor="textSecondary">
-                {show.status === 'CONFIRMED' ? 'Confirmed' : show.status === 'CANCELLED' ? 'Cancelled' : 'Pending'}
-                {typeLabel[show.type] ? ` · ${typeLabel[show.type]}` : ''}
+                Type
               </ThemedText>
-            </View>
-            <ThemedText style={styles.date}>{formatDate(show.date)}</ThemedText>
-            {location && <ThemedText themeColor="textSecondary">{location}</ThemedText>}
-            {show.venueAddress && (
-              <ThemedText type="small" themeColor="textSecondary">
-                {show.venueAddress}
-              </ThemedText>
-            )}
-            {show.release && (
-              <ThemedText type="small" themeColor="textSecondary">
-                Tracking for {show.release.title}
-              </ThemedText>
-            )}
-          </View>
+              <View style={styles.chipRow}>
+                {EDIT_TYPES.map((t) => (
+                  <Pressable key={t} onPress={() => setEditType(t)}>
+                    <View style={[styles.editChip, t === editType && styles.editChipActive]}>
+                      <ThemedText type="small" themeColor={t === editType ? 'text' : 'textSecondary'}>
+                        {EDIT_TYPE_LABEL[t]}
+                      </ThemedText>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
 
-          {timeline.length > 0 && (
+              <ThemedText type="small" themeColor="textSecondary">
+                Title
+              </ThemedText>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
+                value={editTitle}
+                onChangeText={setEditTitle}
+              />
+
+              <View style={styles.targetDateRow}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Date: {editDate ? formatDate(editDate) : 'None'}
+                </ThemedText>
+                <Pressable onPress={() => setPickingDate((p) => !p)}>
+                  <ThemedText style={styles.linkText}>{pickingDate ? 'Close' : 'Change'}</ThemedText>
+                </Pressable>
+              </View>
+              {pickingDate && (
+                <Calendar
+                  onDayPress={(day) => {
+                    setEditDate(day.dateString);
+                    setPickingDate(false);
+                  }}
+                  markedDates={editDate ? { [editDate]: { selected: true, selectedColor: BRAND_BLUE } } : {}}
+                  theme={{
+                    calendarBackground: theme.backgroundSelected,
+                    dayTextColor: theme.text,
+                    monthTextColor: theme.text,
+                    textSectionTitleColor: theme.textSecondary,
+                    textDisabledColor: theme.textSecondary,
+                    arrowColor: theme.text,
+                  }}
+                />
+              )}
+
+              <VenueSearch
+                value={editVenue}
+                onValueChange={onVenueChange}
+                onSelect={onVenueSelect}
+                surface="backgroundSelected"
+              />
+              {editVenueAddress && (
+                <ThemedText type="small" themeColor="textSecondary" style={styles.addressText}>
+                  📍 {editVenueAddress}
+                </ThemedText>
+              )}
+              <View style={styles.editRow}>
+                <TextInput
+                  style={[styles.input, styles.flex1, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
+                  placeholder="City"
+                  placeholderTextColor={theme.textSecondary}
+                  value={editCity}
+                  onChangeText={setEditCity}
+                />
+                <TextInput
+                  style={[styles.input, styles.flex1, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
+                  placeholder="State"
+                  placeholderTextColor={theme.textSecondary}
+                  value={editState}
+                  onChangeText={setEditState}
+                />
+              </View>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
+                placeholder="Notes"
+                placeholderTextColor={theme.textSecondary}
+                value={editNotes}
+                onChangeText={setEditNotes}
+                multiline
+              />
+
+              {saveError && <ThemedText style={styles.error}>{saveError}</ThemedText>}
+
+              <View style={styles.formButtons}>
+                <Pressable onPress={() => setEditing(false)} style={styles.cancelButton}>
+                  <ThemedText>Cancel</ThemedText>
+                </Pressable>
+                <Pressable
+                  disabled={saving || !editTitle.trim() || !editDate}
+                  onPress={saveEdits}
+                  style={[
+                    styles.saveButton,
+                    (saving || !editTitle.trim() || !editDate) && styles.saveButtonDisabled,
+                  ]}>
+                  <ThemedText style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save'}</ThemedText>
+                </Pressable>
+              </View>
+            </ThemedView>
+          ) : (
+            <View style={styles.header}>
+              <View style={styles.titleRow}>
+                <ThemedText type="subtitle" style={styles.title}>
+                  {show.title}
+                </ThemedText>
+                {canManageEvent && (
+                  <View style={styles.headerActions}>
+                    <Pressable onPress={() => startEditing(show)}>
+                      <ThemedText style={styles.linkText}>Edit</ThemedText>
+                    </Pressable>
+                    <DeleteButton confirmLabel={`Delete "${show.title}"?`} onConfirm={deleteEvent} />
+                  </View>
+                )}
+              </View>
+              <View style={styles.statusRow}>
+                <View style={[styles.statusDot, { backgroundColor: statusColors[show.status] }]} />
+                <ThemedText type="small" themeColor="textSecondary">
+                  {show.status === 'CONFIRMED' ? 'Confirmed' : show.status === 'CANCELLED' ? 'Cancelled' : 'Pending'}
+                  {typeLabel[show.type] ? ` · ${typeLabel[show.type]}` : ''}
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.date}>{formatDate(show.date)}</ThemedText>
+              {location && <ThemedText themeColor="textSecondary">{location}</ThemedText>}
+              {show.venueAddress && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {show.venueAddress}
+                </ThemedText>
+              )}
+              {show.release && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Tracking for {show.release.title}
+                </ThemedText>
+              )}
+            </View>
+          )}
+
+          {!editing && timeline.length > 0 && (
             <ThemedView type="backgroundElement" style={styles.section}>
               {timeline.map((step) => (
                 <View key={step.label} style={styles.timelineRow}>
@@ -143,7 +354,7 @@ export default function EventScreen() {
             </ThemedView>
           )}
 
-          {(show.guarantee || show.notes) && (
+          {!editing && (show.guarantee || show.notes) && (
             <ThemedView type="backgroundElement" style={styles.section}>
               {show.guarantee != null && (
                 <ThemedText>${show.guarantee.toFixed(0)} guarantee</ThemedText>
@@ -233,6 +444,10 @@ const styles = StyleSheet.create({
   centered: { alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: Spacing.three, gap: Spacing.three },
   header: { gap: Spacing.one },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  linkText: { color: '#3c87f7', fontWeight: '600' },
+  addressText: { marginTop: -Spacing.one },
   title: { fontSize: 24, lineHeight: 30 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.one },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
@@ -255,4 +470,34 @@ const styles = StyleSheet.create({
   respondTextActive: { color: '#ffffff' },
   memberGroup: { gap: 2 },
   memberGroupLabel: { letterSpacing: 0.5, marginBottom: 2 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  editChip: {
+    borderRadius: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    backgroundColor: 'rgba(128,128,128,0.2)',
+  },
+  editChipActive: { backgroundColor: BRAND_BLUE },
+  targetDateRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  editRow: { flexDirection: 'row', gap: Spacing.two },
+  flex1: { flex: 1 },
+  input: {
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    fontSize: 15,
+  },
+  error: { color: '#dc2626' },
+  formButtons: { flexDirection: 'row', gap: Spacing.two, justifyContent: 'flex-end' },
+  cancelButton: { paddingVertical: Spacing.two, paddingHorizontal: Spacing.three },
+  saveButton: {
+    backgroundColor: BRAND_BLUE,
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.two,
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.four,
+  },
+  saveButtonDisabled: { opacity: 0.5 },
+  saveButtonText: { color: '#ffffff', fontWeight: '600' },
 });

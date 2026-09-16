@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 
+import { DeleteButton } from '@/components/delete-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -113,6 +114,11 @@ export default function SongScreen() {
     setLoading(false);
   }, [authedFetch, id]);
 
+  async function deleteSong() {
+    const res = await authedFetch(`/api/songs/${id}`, { method: 'DELETE' });
+    if (res.ok) router.back();
+  }
+
   useEffect(() => {
     Promise.resolve().then(load);
   }, [load]);
@@ -179,6 +185,7 @@ export default function SongScreen() {
 
   const canManageComment = (comment: SongComment) =>
     comment.userId === userId || (!!role && CAN_MANAGE_ROLES.includes(role));
+  const canDelete = song.createdById === userId || (!!role && CAN_MANAGE_ROLES.includes(role));
 
   return (
     <ThemedView style={styles.container}>
@@ -278,9 +285,14 @@ export default function SongScreen() {
                 <ThemedText type="subtitle" style={styles.title}>
                   {song.title}
                 </ThemedText>
-                <Pressable onPress={() => startEditing(song)}>
-                  <ThemedText style={styles.linkText}>Edit</ThemedText>
-                </Pressable>
+                <View style={styles.headerActions}>
+                  <Pressable onPress={() => startEditing(song)}>
+                    <ThemedText style={styles.linkText}>Edit</ThemedText>
+                  </Pressable>
+                  {canDelete && (
+                    <DeleteButton confirmLabel={`Delete "${song.title}"?`} onConfirm={deleteSong} />
+                  )}
+                </View>
               </View>
               <View style={styles.statusRow}>
                 <View style={[styles.statusDot, { backgroundColor: songStatusColor[song.status] }]} />
@@ -401,6 +413,7 @@ const styles = StyleSheet.create({
   },
   header: { gap: Spacing.two },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   title: { fontSize: 24, lineHeight: 30 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   statusDot: { width: 8, height: 8, borderRadius: 4 },

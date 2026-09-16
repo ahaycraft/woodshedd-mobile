@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, type DateData } from 'react-native-calendars';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { AccountButton } from '@/components/account-button';
 import { ThemedText } from '@/components/themed-text';
@@ -167,25 +167,34 @@ export default function CalendarScreen() {
     [authedFetch]
   );
 
+  // Tracks whichever month is currently visible, so a focus-refresh (after
+  // adding/editing/deleting an event) reloads that month instead of always
+  // snapping back to today's.
+  const now = new Date();
+  const visibleMonthRef = useRef({ year: now.getFullYear(), month: now.getMonth() + 1 });
+
   const onVisibleMonthsChange = useCallback(
     (months: DateData[]) => {
       const month = months[0];
-      if (month) void loadMonth(month.year, month.month);
+      if (month) {
+        visibleMonthRef.current = { year: month.year, month: month.month };
+        void loadMonth(month.year, month.month);
+      }
     },
     [loadMonth]
   );
 
   // react-native-calendars wraps onVisibleMonthsChange in a "skip the first
   // render" hook internally, so it never fires for the initial month on
-  // mount — only on later navigation. Load the current month explicitly.
-  // Wrapped in .then() rather than called directly, same reasoning as the
-  // Availability screen: satisfies the lint rule that (correctly) flags an
-  // awaited async function's setState calls as if they ran synchronously
-  // in the effect.
-  useEffect(() => {
-    const now = new Date();
-    Promise.resolve().then(() => loadMonth(now.getFullYear(), now.getMonth() + 1));
-  }, [loadMonth]);
+  // mount — only on later navigation. useFocusEffect covers both: the
+  // initial load, and refreshing the visible month when this tab regains
+  // focus after adding/editing/deleting an event.
+  useFocusEffect(
+    useCallback(() => {
+      const { year, month } = visibleMonthRef.current;
+      void loadMonth(year, month);
+    }, [loadMonth])
+  );
 
   const markedDates = useMemo(() => {
     const marks: Marks = {};
@@ -262,9 +271,14 @@ export default function CalendarScreen() {
                 Tap a date to see what&apos;s happening.
               </ThemedText>
             ) : dayShows.length === 0 && dayUnavailable.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                Nothing on {selectedDate}.
-              </ThemedText>
+              <View style={styles.emptyDay}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Nothing on {selectedDate}.
+                </ThemedText>
+                <Pressable onPress={() => router.push(`/event/new?date=${selectedDate}`)}>
+                  <ThemedText style={styles.addButtonText}>+ Add event</ThemedText>
+                </Pressable>
+              </View>
             ) : (
               <>
                 {dayShows.map((show) => (
@@ -319,6 +333,7 @@ const styles = StyleSheet.create({
   addButtonText: { color: '#208AEF', fontWeight: '600' },
   title: { fontSize: 28, lineHeight: 34 },
   dayPanel: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
+  emptyDay: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   eventRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { VenueSearch, type VenueResult } from '@/components/venue-search';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/hooks/use-theme';
@@ -24,18 +25,37 @@ function todayStr() {
 }
 
 export default function NewEventScreen() {
+  const { date: initialDate } = useLocalSearchParams<{ date?: string }>();
   const { authedFetch } = useAuth();
   const theme = useTheme();
 
   const [type, setType] = useState<EventTypeStr>('SHOW');
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState<string | null>(null);
+  const [date, setDate] = useState<string | null>(initialDate ?? null);
   const [venue, setVenue] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
+  const [venueAddress, setVenueAddress] = useState<string | null>(null);
+  const [venueCoords, setVenueCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function onVenueChange(text: string) {
+    setVenue(text);
+    // Free-typing after picking a suggestion means the address/coords no
+    // longer necessarily match — drop them rather than save stale ones.
+    setVenueAddress(null);
+    setVenueCoords(null);
+  }
+
+  function onVenueSelect(result: VenueResult) {
+    setVenue(result.name);
+    setVenueAddress(result.address || null);
+    setVenueCoords(result.lat != null && result.lng != null ? { lat: result.lat, lng: result.lng } : null);
+    if (result.city) setCity(result.city);
+    if (result.state) setState(result.state);
+  }
 
   async function save() {
     if (!title.trim() || !date) return;
@@ -51,6 +71,9 @@ export default function NewEventScreen() {
         venue: venue.trim() || undefined,
         city: city.trim() || undefined,
         state: state.trim() || undefined,
+        venueAddress: venueAddress || undefined,
+        venueLat: venueCoords?.lat,
+        venueLng: venueCoords?.lng,
         notes: notes.trim() || undefined,
       }),
     });
@@ -89,6 +112,7 @@ export default function NewEventScreen() {
           />
 
           <Calendar
+            current={date ?? undefined}
             minDate={todayStr()}
             onDayPress={(day) => setDate(day.dateString)}
             markedDates={date ? { [date]: { selected: true, selectedColor: BRAND_BLUE } } : {}}
@@ -102,13 +126,13 @@ export default function NewEventScreen() {
             }}
           />
 
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.backgroundElement, color: theme.text }]}
-            placeholder="Venue"
-            placeholderTextColor={theme.textSecondary}
-            value={venue}
-            onChangeText={setVenue}
-          />
+          <VenueSearch value={venue} onValueChange={onVenueChange} onSelect={onVenueSelect} />
+          {venueAddress && (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.addressText}>
+              📍 {venueAddress}
+            </ThemedText>
+          )}
+
           <View style={styles.row}>
             <TextInput
               style={[styles.input, styles.flex1, { backgroundColor: theme.backgroundElement, color: theme.text }]}
@@ -152,6 +176,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
   scrollContent: { padding: Spacing.three, gap: Spacing.three },
+  addressText: { marginTop: -Spacing.two },
   chipRow: { flexDirection: 'row', gap: Spacing.two },
   typeChip: {
     borderRadius: Spacing.four,
