@@ -4,6 +4,26 @@
 
 export type InterestRole = 'ARTIST' | 'BAND' | 'PRODUCER' | 'MANAGER' | 'BOOKING_AGENT';
 
+export type BandRole = 'OWNER' | 'ADMIN' | 'MEMBER';
+
+export interface Band {
+  id: string;
+  name: string;
+  slug: string;
+  role: BandRole;
+}
+
+// Shape returned by GET /api/mobile/me.
+export interface MeResponse {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone: string | null;
+  bands: Band[];
+  activeBandId: string | null;
+}
+
 export type EventTypeStr = 'SHOW' | 'RECORDING' | 'PRACTICE';
 export type ShowStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING';
@@ -43,6 +63,13 @@ export interface ShowDetail extends Show {
   venueLng: number | null;
   createdBy: { id: string; name: string | null };
   release: { id: string; title: string } | null;
+  /** Total band membership — used for the "X of Y available" confirm/cancel
+   *  controls. See ShowStatusControls.tsx on the web app. */
+  memberCount: number;
+  /** Every other band member's phone number, for the "Text itinerary"
+   *  shortcut — mirrors EventDetail.tsx's own itineraryPhones on web.
+   *  Optional: absent against a backend that predates this field. */
+  itineraryPhones?: string[];
 }
 
 export interface MemberUnavailability {
@@ -88,7 +115,17 @@ export interface SongDemo {
   label: string | null;
   url: string;
   createdAt: string;
+  createdById: string;
   createdBy: { name: string | null };
+}
+
+export interface SongSection {
+  id: string;
+  songId: string;
+  name: string;
+  notes: string | null;
+  lyrics: string | null;
+  position: number;
 }
 
 // Shape returned by GET /api/songs/:id.
@@ -110,6 +147,7 @@ export interface SongDetail {
   demos: SongDemo[];
   tracks: SongTrack[];
   comments: SongComment[];
+  sections: SongSection[];
 }
 
 export type ReleaseKind = 'ALBUM' | 'EP' | 'SINGLE' | 'GROUP';

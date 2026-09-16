@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,31 +11,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { DeleteButton } from '@/components/delete-button';
+import { SongArrangementCard } from '@/components/song-arrangement';
+import { SongDemosCard } from '@/components/song-demos';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { relativeTime } from '@/lib/time';
 import { SONG_STATUSES, songStatusColor, songStatusLabel } from '@/lib/songs';
 import type { SongComment, SongDetail, SongStatus } from '@/types/api';
 
 const CAN_MANAGE_ROLES = ['OWNER', 'ADMIN'];
-
-function relativeTime(dateStr: string) {
-  const seconds = Math.max(0, (Date.now() - new Date(dateStr).getTime()) / 1000);
-  const units: [string, number][] = [
-    ['year', 31536000],
-    ['month', 2592000],
-    ['day', 86400],
-    ['hour', 3600],
-    ['minute', 60],
-  ];
-  for (const [label, secondsPerUnit] of units) {
-    const value = Math.floor(seconds / secondsPerUnit);
-    if (value >= 1) return `${value} ${label}${value === 1 ? '' : 's'} ago`;
-  }
-  return 'just now';
-}
 
 export default function SongScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -56,6 +42,7 @@ export default function SongScreen() {
   const [editTempo, setEditTempo] = useState('');
   const [editTimeSig, setEditTimeSig] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editLyrics, setEditLyrics] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -66,6 +53,7 @@ export default function SongScreen() {
     setEditTempo(current.tempo != null ? String(current.tempo) : '');
     setEditTimeSig(current.timeSig ?? '');
     setEditNotes(current.notes ?? '');
+    setEditLyrics(current.lyrics ?? '');
     setSaveError(null);
     setEditing(true);
   }
@@ -84,6 +72,7 @@ export default function SongScreen() {
         tempo: editTempo.trim() ? Number(editTempo.trim()) : null,
         timeSig: editTimeSig.trim() || null,
         notes: editNotes.trim() || null,
+        lyrics: editLyrics.trim() || null,
       }),
     });
     setSaving(false);
@@ -102,6 +91,7 @@ export default function SongScreen() {
             tempo: editTempo.trim() ? Number(editTempo.trim()) : null,
             timeSig: editTimeSig.trim() || null,
             notes: editNotes.trim() || null,
+            lyrics: editLyrics.trim() || null,
           }
         : prev
     );
@@ -265,6 +255,22 @@ export default function SongScreen() {
                 multiline
               />
 
+              <ThemedText type="small" themeColor="textSecondary">
+                Lyrics
+              </ThemedText>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.lyricsInput,
+                  { backgroundColor: theme.backgroundSelected, color: theme.text },
+                ]}
+                value={editLyrics}
+                onChangeText={setEditLyrics}
+                multiline
+                placeholder="Full lyrics…"
+                placeholderTextColor={theme.textSecondary}
+              />
+
               {saveError && <ThemedText style={styles.error}>{saveError}</ThemedText>}
 
               <View style={styles.formButtons}>
@@ -328,25 +334,24 @@ export default function SongScreen() {
             </ThemedView>
           )}
 
-          <ThemedView type="backgroundElement" style={styles.section}>
-            <ThemedText type="smallBold">Demos</ThemedText>
-            {song.demos.length === 0 ? (
-              <ThemedText type="small" themeColor="textSecondary">
-                No demos yet.
-              </ThemedText>
-            ) : (
-              song.demos.map((demo) => (
-                <Pressable key={demo.id} onPress={() => Linking.openURL(demo.url)} style={styles.demoRow}>
-                  <ThemedText style={styles.linkText} numberOfLines={1}>
-                    {demo.label || 'Demo'}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {relativeTime(demo.createdAt)}
-                  </ThemedText>
-                </Pressable>
-              ))
-            )}
-          </ThemedView>
+          {!editing && song.lyrics && (
+            <ThemedView type="backgroundElement" style={styles.section}>
+              <ThemedText type="smallBold">Lyrics</ThemedText>
+              <ThemedText>{song.lyrics}</ThemedText>
+            </ThemedView>
+          )}
+
+          <SongArrangementCard
+            songId={song.id}
+            sections={song.sections}
+            onSectionsChange={(sections) => setSong((prev) => (prev ? { ...prev, sections } : prev))}
+          />
+
+          <SongDemosCard
+            songId={song.id}
+            demos={song.demos}
+            onDemosChange={(demos) => setSong((prev) => (prev ? { ...prev, demos } : prev))}
+          />
 
           <ThemedView type="backgroundElement" style={styles.section}>
             <ThemedText type="smallBold">
@@ -436,12 +441,6 @@ const styles = StyleSheet.create({
   formButtons: { flexDirection: 'row', gap: Spacing.two, justifyContent: 'flex-end' },
   cancelButton: { paddingVertical: Spacing.two, paddingHorizontal: Spacing.three },
   section: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
-  demoRow: {
-    gap: 2,
-    paddingVertical: Spacing.two,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128,128,128,0.2)',
-  },
   linkText: { color: '#3c87f7' },
   commentRow: {
     gap: 2,
@@ -460,6 +459,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 44,
   },
+  lyricsInput: { minHeight: 120 },
   error: { color: '#dc2626' },
   postButton: {
     backgroundColor: '#208AEF',

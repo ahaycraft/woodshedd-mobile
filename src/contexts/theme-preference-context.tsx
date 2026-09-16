@@ -1,17 +1,16 @@
 import { createContext, useCallback, useContext, useMemo, type PropsWithChildren } from 'react';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useStorageState } from '@/hooks/use-storage-state';
 
-export type ThemePreference = 'light' | 'dark' | 'system';
+export type ThemePreference = 'light' | 'dark';
 
 interface ThemePreferenceContextValue {
-  /** What the user picked — 'system' (the default) means "follow the OS". */
+  /** What the user picked. Same value as `colorScheme` — kept as a
+   *  separate field only because most callers just want the resolved
+   *  scheme to render with. */
   preference: ThemePreference;
   setPreference: (preference: ThemePreference) => void;
-  /** `preference` resolved against the OS setting when it's 'system' — use
-   *  this, not the raw OS scheme, for anything that actually renders. */
-  colorScheme: 'light' | 'dark';
+  colorScheme: ThemePreference;
 }
 
 const ThemePreferenceContext = createContext<ThemePreferenceContextValue | null>(null);
@@ -26,25 +25,19 @@ export function useThemePreference(): ThemePreferenceContextValue {
 
 const STORAGE_KEY = 'theme_preference';
 
-// Mirrors the web app's manual Light/Dark toggle (see ThemeMenu.tsx there),
-// plus a 'system' option native apps are expected to default to.
+// Mirrors the web app's manual Light/Dark toggle exactly (see ThemeMenu.tsx
+// there) — no "follow the OS" option, and defaults to dark until the user
+// picks, same as web's default when it has no theme cookie yet.
 export function ThemePreferenceProvider({ children }: PropsWithChildren) {
-  const systemScheme = useColorScheme();
   const [[, stored], setStored] = useStorageState(STORAGE_KEY);
 
-  const preference: ThemePreference = stored === 'light' || stored === 'dark' ? stored : 'system';
+  const preference: ThemePreference = stored === 'light' ? 'light' : 'dark';
 
-  const setPreference = useCallback(
-    (next: ThemePreference) => setStored(next === 'system' ? null : next),
-    [setStored]
-  );
-
-  const colorScheme: 'light' | 'dark' =
-    preference === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : preference;
+  const setPreference = useCallback((next: ThemePreference) => setStored(next), [setStored]);
 
   const value = useMemo(
-    () => ({ preference, setPreference, colorScheme }),
-    [preference, setPreference, colorScheme]
+    () => ({ preference, setPreference, colorScheme: preference }),
+    [preference, setPreference]
   );
 
   return <ThemePreferenceContext.Provider value={value}>{children}</ThemePreferenceContext.Provider>;

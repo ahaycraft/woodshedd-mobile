@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -9,14 +10,28 @@ import { useAuth } from '@/contexts/auth-context';
 import { useThemePreference, type ThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
 
-const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+const THEME_OPTIONS: {
+  value: ThemePreference;
+  label: string;
+  icon: { ios: SFSymbol; android: AndroidSymbol };
+}[] = [
+  { value: 'light', label: 'Light', icon: { ios: 'sun.max', android: 'light_mode' } },
+  { value: 'dark', label: 'Dark', icon: { ios: 'moon', android: 'dark_mode' } },
 ];
 
 export default function AccountScreen() {
-  const { authedFetch, profile, refreshProfile, signOut } = useAuth();
+  const {
+    authedFetch,
+    profile,
+    refreshProfile,
+    bands,
+    activeBandId,
+    switchBand,
+    pushEnabled,
+    pushLoading,
+    setPushEnabled,
+    signOut,
+  } = useAuth();
   const theme = useTheme();
   const { preference, setPreference } = useThemePreference();
 
@@ -25,6 +40,13 @@ export default function AccountScreen() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [pushBusy, setPushBusy] = useState(false);
+
+  async function togglePush(value: boolean) {
+    setPushBusy(true);
+    await setPushEnabled(value);
+    setPushBusy(false);
+  }
 
   // Seeds the form fields once the profile has loaded; re-syncing on every
   // render would clobber whatever the user is currently typing.
@@ -121,22 +143,69 @@ export default function AccountScreen() {
             </ThemedView>
           )}
 
+          {bands.length > 1 && (
+            <ThemedView type="backgroundElement" style={styles.section}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Group
+              </ThemedText>
+              <View style={styles.chipRow}>
+                {bands.map((band) => (
+                  <Pressable key={band.id} onPress={() => switchBand(band.id)}>
+                    <View style={[styles.chip, band.id === activeBandId && styles.chipActive]}>
+                      <ThemedText
+                        type="small"
+                        themeColor={band.id === activeBandId ? 'text' : 'textSecondary'}>
+                        {band.name}
+                      </ThemedText>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            </ThemedView>
+          )}
+
+          {!pushLoading && (
+            <ThemedView type="backgroundElement" style={styles.section}>
+              <View style={styles.switchRow}>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Push notifications
+                </ThemedText>
+                <Switch
+                  value={pushEnabled}
+                  onValueChange={togglePush}
+                  disabled={pushBusy}
+                  trackColor={{ false: theme.backgroundSelected, true: '#208AEF' }}
+                />
+              </View>
+            </ThemedView>
+          )}
+
           <ThemedView type="backgroundElement" style={styles.section}>
             <ThemedText type="small" themeColor="textSecondary">
               Appearance
             </ThemedText>
-            <View style={styles.chipRow}>
-              {THEME_OPTIONS.map((opt) => (
-                <Pressable key={opt.value} onPress={() => setPreference(opt.value)}>
-                  <View style={[styles.chip, opt.value === preference && styles.chipActive]}>
+            <View style={[styles.segmentedControl, { backgroundColor: theme.backgroundSelected }]}>
+              {THEME_OPTIONS.map((opt) => {
+                const active = opt.value === preference;
+                return (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => setPreference(opt.value)}
+                    style={[styles.segment, active && styles.segmentActive]}>
+                    <SymbolView
+                      name={{ ios: opt.icon.ios, android: opt.icon.android, web: opt.icon.android }}
+                      size={14}
+                      tintColor={active ? '#ffffff' : theme.textSecondary}
+                    />
                     <ThemedText
                       type="small"
-                      themeColor={opt.value === preference ? 'text' : 'textSecondary'}>
+                      themeColor={active ? undefined : 'textSecondary'}
+                      style={active ? styles.segmentActiveText : undefined}>
                       {opt.label}
                     </ThemedText>
-                  </View>
-                </Pressable>
-              ))}
+                  </Pressable>
+                );
+              })}
             </View>
           </ThemedView>
 
@@ -168,6 +237,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(128,128,128,0.2)',
   },
   chipActive: { backgroundColor: '#208AEF' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: Spacing.two,
+    padding: 2,
+    gap: 2,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.one,
+    borderRadius: Spacing.one,
+    paddingVertical: Spacing.two,
+  },
+  segmentActive: { backgroundColor: '#208AEF' },
+  segmentActiveText: { color: '#ffffff' },
   field: { gap: Spacing.one },
   input: {
     borderRadius: Spacing.two,

@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Calendar } from 'react-native-calendars';
+// The package root now points at expo-calendar's newer object-oriented API
+// (calendar-read-based); createEventInCalendarAsync — the systemProvidedUI
+// dialog that needs no calendar-read permission — only lives in /legacy.
+import * as ExpoCalendar from 'expo-calendar/legacy';
+import { SymbolView } from 'expo-symbols';
 
 import { DeleteButton } from '@/components/delete-button';
 import { ThemedText } from '@/components/themed-text';
@@ -13,6 +18,8 @@ import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
+import { showToCalendarEvent } from '@/lib/calendar';
+import { buildItineraryMessage } from '@/lib/itinerary';
 import type { AvailabilityStatus, EventTypeStr, ShowDetail } from '@/types/api';
 
 const CAN_MANAGE_ROLES = ['OWNER', 'ADMIN'];
@@ -30,6 +37,13 @@ const EDIT_TYPE_LABEL: Record<EventTypeStr, string> = {
 };
 const AVAILABLE_COLOR = '#4d7c63';
 const UNAVAILABLE_COLOR = '#a05a52';
+const CONFIRMED_COLOR = '#4d7c63';
+const CANCELLED_COLOR = '#a05a52';
+const EVENT_NOUN: Record<EventTypeStr, string> = {
+  SHOW: 'show',
+  RECORDING: 'session',
+  PRACTICE: 'practice',
+};
 const BRAND_BLUE = '#208AEF';
 
 function formatDate(dateStr: string) {
@@ -67,6 +81,8 @@ export default function EventScreen() {
   const [pickingDate, setPickingDate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [confirmingAnyway, setConfirmingAnyway] = useState(false);
 
   function onVenueChange(text: string) {
     setEditVenue(text);
@@ -144,6 +160,47 @@ export default function EventScreen() {
     if (res.ok) router.back();
   }
 
+  // sms: URIs pre-fill the message body differently by platform — iOS wants
+  // `&body=`, Android wants `?body=`. Mirrors the web app's own
+  // TextItineraryButton (there it reads navigator.userAgent instead).
+  //
+  // itineraryPhones defaults to [] since it's undefined against a backend
+  // that predates it (e.g. still on production without this endpoint change
+  // deployed) — the button just goes inert rather than crashing the screen.
+  const itineraryPhones = show?.itineraryPhones ?? [];
+
+  function textItinerary() {
+    if (!show || itineraryPhones.length === 0) return;
+    const message = buildItineraryMessage(show);
+    const separator = Platform.OS === 'ios' ? '&' : '?';
+    Linking.openURL(`sms:${itineraryPhones.join(',')}${separator}body=${encodeURIComponent(message)}`);
+  }
+
+  // Launches the OS's own "Add Event" UI pre-filled with the show's details
+  // — the user still taps Save themselves, so this needs no calendar-read
+  // permission and never touches the web app's (cookie-authenticated) .ics
+  // endpoint, which a mobile Bearer-token session can't reach directly.
+  async function addToCalendar() {
+    if (!show) return;
+    try {
+      await ExpoCalendar.createEventInCalendarAsync(showToCalendarEvent(show));
+    } catch {
+      // Best-effort — the user cancelled, or the OS declined.
+    }
+  }
+
+  async function updateStatus(status: ShowDetail['status']) {
+    setStatusUpdating(true);
+    setConfirmingAnyway(false);
+    const res = await authedFetch(`/api/shows/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    if (res.ok) await load();
+    setStatusUpdating(false);
+  }
+
   async function respond(status: AvailabilityStatus) {
     setResponding(true);
     const res = await authedFetch(`/api/shows/${id}/availability`, {
@@ -199,6 +256,9 @@ export default function EventScreen() {
   const unavailable = show.availability.filter((a) => a.status === 'UNAVAILABLE');
   const pending = show.availability.filter((a) => a.status === 'PENDING');
   const canManageEvent = show.createdBy.id === userId || (!!role && CAN_MANAGE_ROLES.includes(role));
+  const everyoneAvailable = show.memberCount > 0 && available.length >= show.memberCount;
+  const eventNoun = EVENT_NOUN[show.type];
+  const Noun = eventNoun[0].toUpperCase() + eventNoun.slice(1);
 
   return (
     <ThemedView style={styles.container}>
@@ -347,6 +407,26 @@ export default function EventScreen() {
             </View>
           )}
 
+          {!editing && (
+            <View style={styles.quickActions}>
+              <Pressable
+                onPress={textItinerary}
+                disabled={itineraryPhones.length === 0}
+                style={[styles.quickActionButton, itineraryPhones.length === 0 && styles.quickActionDisabled]}>
+                <SymbolView name={{ ios: 'message', android: 'sms', web: 'sms' }} size={14} tintColor={theme.text} />
+                <ThemedText type="small">Text itinerary</ThemedText>
+              </Pressable>
+              <Pressable onPress={addToCalendar} style={styles.quickActionButton}>
+                <SymbolView
+                  name={{ ios: 'calendar.badge.plus', android: 'calendar_add_on', web: 'calendar_add_on' }}
+                  size={14}
+                  tintColor={theme.text}
+                />
+                <ThemedText type="small">Add to calendar</ThemedText>
+              </Pressable>
+            </View>
+          )}
+
           {!editing && (show.venue || show.city) && (
             <VenueMap
               lat={show.venueLat}
@@ -445,6 +525,65 @@ export default function EventScreen() {
               </>
             )}
           </ThemedView>
+
+          {!editing && canManageEvent && (
+            <ThemedView type="backgroundElement" style={styles.section}>
+              <View style={styles.statusControlsHeader}>
+                <ThemedText type="smallBold">Admin Actions</ThemedText>
+                <ThemedText
+                  type="small"
+                  style={{ color: everyoneAvailable ? AVAILABLE_COLOR : UNAVAILABLE_COLOR }}>
+                  {available.length} of {show.memberCount} available
+                </ThemedText>
+              </View>
+              <View style={styles.chipRow}>
+                {show.status !== 'CONFIRMED' && (
+                  <Pressable
+                    disabled={statusUpdating}
+                    onPress={() => (everyoneAvailable ? updateStatus('CONFIRMED') : setConfirmingAnyway(true))}
+                    style={[styles.statusActionChip, { backgroundColor: CONFIRMED_COLOR }]}>
+                    <ThemedText style={styles.statusActionText}>Confirm {Noun}</ThemedText>
+                  </Pressable>
+                )}
+                {show.status !== 'PENDING' && (
+                  <Pressable
+                    disabled={statusUpdating}
+                    onPress={() => updateStatus('PENDING')}
+                    style={[styles.statusActionChip, { backgroundColor: statusColors.PENDING }]}>
+                    <ThemedText style={styles.statusActionText}>Mark Pending</ThemedText>
+                  </Pressable>
+                )}
+                {show.status !== 'CANCELLED' && (
+                  <Pressable
+                    disabled={statusUpdating}
+                    onPress={() => updateStatus('CANCELLED')}
+                    style={[styles.statusActionChip, { backgroundColor: CANCELLED_COLOR }]}>
+                    <ThemedText style={styles.statusActionText}>Cancel {Noun}</ThemedText>
+                  </Pressable>
+                )}
+              </View>
+
+              {confirmingAnyway && (
+                <View style={styles.confirmAnywayBox}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Only {available.length} of {show.memberCount} members have marked available. You
+                    can still confirm this {eventNoun}.
+                  </ThemedText>
+                  <View style={styles.formButtons}>
+                    <Pressable onPress={() => setConfirmingAnyway(false)} style={styles.cancelButton}>
+                      <ThemedText>Cancel</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      disabled={statusUpdating}
+                      onPress={() => updateStatus('CONFIRMED')}
+                      style={[styles.statusActionChip, { backgroundColor: CONFIRMED_COLOR }]}>
+                      <ThemedText style={styles.statusActionText}>Confirm {Noun}</ThemedText>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </ThemedView>
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -457,6 +596,18 @@ const styles = StyleSheet.create({
   centered: { alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: Spacing.three, gap: Spacing.three },
   header: { gap: Spacing.one },
+  quickActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    borderRadius: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(128,128,128,0.3)',
+  },
+  quickActionDisabled: { opacity: 0.4 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   linkText: { color: '#3c87f7', fontWeight: '600' },
@@ -513,4 +664,12 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.5 },
   saveButtonText: { color: '#ffffff', fontWeight: '600' },
+  statusControlsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  statusActionChip: {
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  statusActionText: { color: '#ffffff', fontWeight: '600', fontSize: 13 },
+  confirmAnywayBox: { gap: Spacing.two, marginTop: Spacing.one },
 });

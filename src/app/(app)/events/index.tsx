@@ -4,10 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
 import { AccountButton } from '@/components/account-button';
+import { SearchBar } from '@/components/search-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { matchesQuery } from '@/lib/search';
 import type { EventTypeStr, Show } from '@/types/api';
 
 const BRAND_BLUE = '#208AEF';
@@ -64,6 +66,7 @@ export default function EventsScreen() {
   const [shows, setShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeType, setActiveType] = useState<EventTypeStr>('SHOW');
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     // 90 days back (matching the web list pages' LIST_PAST_DAYS) through a
@@ -85,7 +88,13 @@ export default function EventsScreen() {
     }, [load])
   );
 
-  const filtered = useMemo(() => shows.filter((s) => s.type === activeType), [shows, activeType]);
+  const filtered = useMemo(
+    () =>
+      shows
+        .filter((s) => s.type === activeType)
+        .filter((s) => matchesQuery(query, [s.title, s.venue, s.city, s.state])),
+    [shows, activeType, query]
+  );
   const upcoming = filtered.filter(isUpcoming);
   const past = filtered.filter((s) => !isUpcoming(s));
 
@@ -117,9 +126,15 @@ export default function EventsScreen() {
             ))}
           </View>
 
+          {shows.length > 0 && <SearchBar value={query} onChangeText={setQuery} placeholder="Search events" />}
+
           {loading ? (
             <ThemedText type="small" themeColor="textSecondary">
               Loading…
+            </ThemedText>
+          ) : query && filtered.length === 0 ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              No events match &ldquo;{query}&rdquo;.
             </ThemedText>
           ) : (
             <>

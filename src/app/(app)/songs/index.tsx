@@ -1,13 +1,15 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
 import { AccountButton } from '@/components/account-button';
+import { SearchBar } from '@/components/search-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { matchesQuery } from '@/lib/search';
 import { SONG_STATUSES, songStatusColor, songStatusLabel } from '@/lib/songs';
 import type { SongListItem, SongStatus } from '@/types/api';
 
@@ -57,6 +59,7 @@ export default function SongsScreen() {
   const { authedFetch } = useAuth();
   const [songs, setSongs] = useState<SongListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     const res = await authedFetch('/api/songs');
@@ -72,8 +75,16 @@ export default function SongsScreen() {
     }, [load])
   );
 
+  const filteredSongs = useMemo(
+    () =>
+      songs.filter((song) =>
+        matchesQuery(query, [song.title, song.key, ...song.tracks.map((t) => t.release.title)])
+      ),
+    [songs, query]
+  );
+
   const byStatus = new Map<SongStatus, SongListItem[]>();
-  for (const song of songs) {
+  for (const song of filteredSongs) {
     const list = byStatus.get(song.status) ?? [];
     list.push(song);
     byStatus.set(song.status, list);
@@ -95,6 +106,8 @@ export default function SongsScreen() {
             </View>
           </View>
 
+          {songs.length > 0 && <SearchBar value={query} onChangeText={setQuery} placeholder="Search songs" />}
+
           {loading ? (
             <ThemedText type="small" themeColor="textSecondary">
               Loading…
@@ -102,6 +115,10 @@ export default function SongsScreen() {
           ) : songs.length === 0 ? (
             <ThemedText type="small" themeColor="textSecondary">
               No songs yet.
+            </ThemedText>
+          ) : filteredSongs.length === 0 ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              No songs match &ldquo;{query}&rdquo;.
             </ThemedText>
           ) : (
             SONG_STATUSES.filter((status) => byStatus.has(status)).map((status) => (

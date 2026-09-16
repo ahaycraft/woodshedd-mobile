@@ -1,13 +1,15 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 
 import { AccountButton } from '@/components/account-button';
+import { SearchBar } from '@/components/search-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { matchesQuery } from '@/lib/search';
 import { releaseKindLabel, releaseStatusColor, releaseStatusLabel } from '@/lib/releases';
 import type { ReleaseListItem } from '@/types/api';
 
@@ -50,6 +52,7 @@ export default function ReleasesScreen() {
   const { authedFetch } = useAuth();
   const [releases, setReleases] = useState<ReleaseListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     const res = await authedFetch('/api/releases');
@@ -61,6 +64,11 @@ export default function ReleasesScreen() {
     useCallback(() => {
       void load();
     }, [load])
+  );
+
+  const filteredReleases = useMemo(
+    () => releases.filter((release) => matchesQuery(query, [release.title])),
+    [releases, query]
   );
 
   return (
@@ -79,6 +87,10 @@ export default function ReleasesScreen() {
             </View>
           </View>
 
+          {releases.length > 0 && (
+            <SearchBar value={query} onChangeText={setQuery} placeholder="Search releases" />
+          )}
+
           {loading ? (
             <ThemedText type="small" themeColor="textSecondary">
               Loading…
@@ -87,9 +99,13 @@ export default function ReleasesScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               No releases yet.
             </ThemedText>
+          ) : filteredReleases.length === 0 ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              No releases match &ldquo;{query}&rdquo;.
+            </ThemedText>
           ) : (
             <View style={styles.rows}>
-              {releases.map((release) => (
+              {filteredReleases.map((release) => (
                 <ReleaseRow key={release.id} release={release} />
               ))}
             </View>

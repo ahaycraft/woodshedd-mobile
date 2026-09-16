@@ -36,6 +36,14 @@
       ],
       "expo-secure-store",
       "expo-notifications",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Woodshedd uses this to add shows and practices to your calendar.",
+          "writeOnlyAccess": true,
+          "remindersPermission": false
+        }
+      ],
       "./plugins/withUISceneLifecycle",
       "@rnmapbox/maps"
     ],
