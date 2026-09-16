@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
 import type { AvailabilityStatus, MemberUnavailability, Show } from '@/types/api';
 
@@ -30,6 +31,7 @@ function formatDate(dateStr: string) {
 export default function AvailabilityScreen() {
   const { authedFetch, userId } = useAuth();
   const theme = useTheme();
+  const { colorScheme } = useThemePreference();
 
   const [shows, setShows] = useState<Show[]>([]);
   const [unavailable, setUnavailable] = useState<MemberUnavailability[]>([]);
@@ -211,6 +213,7 @@ export default function AvailabilityScreen() {
             ) : (
               <View style={styles.addForm}>
                 <Calendar
+                  key={colorScheme}
                   minDate={todayStr()}
                   onDayPress={(day) => setNewDate(day.dateString)}
                   markedDates={newDate ? { [newDate]: { selected: true, selectedColor: BRAND_BLUE } } : {}}

@@ -13,6 +13,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
 import { RELEASE_STATUSES, releaseKindLabel, releaseStatusColor, releaseStatusLabel } from '@/lib/releases';
 import { songStatusColor, songStatusLabel } from '@/lib/songs';
@@ -34,6 +35,7 @@ export default function ReleaseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { authedFetch, userId, role } = useAuth();
   const theme = useTheme();
+  const { colorScheme } = useThemePreference();
 
   const [release, setRelease] = useState<ReleaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -210,6 +212,7 @@ export default function ReleaseScreen() {
           </View>
           {pickingDate && (
             <Calendar
+              key={colorScheme}
               onDayPress={(day) => {
                 setEditTargetDate(day.dateString);
                 setPickingDate(false);

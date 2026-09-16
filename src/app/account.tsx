@@ -6,11 +6,19 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useThemePreference, type ThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
+
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 export default function AccountScreen() {
   const { authedFetch, profile, refreshProfile, signOut } = useAuth();
   const theme = useTheme();
+  const { preference, setPreference } = useThemePreference();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -113,6 +121,25 @@ export default function AccountScreen() {
             </ThemedView>
           )}
 
+          <ThemedView type="backgroundElement" style={styles.section}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Appearance
+            </ThemedText>
+            <View style={styles.chipRow}>
+              {THEME_OPTIONS.map((opt) => (
+                <Pressable key={opt.value} onPress={() => setPreference(opt.value)}>
+                  <View style={[styles.chip, opt.value === preference && styles.chipActive]}>
+                    <ThemedText
+                      type="small"
+                      themeColor={opt.value === preference ? 'text' : 'textSecondary'}>
+                      {opt.label}
+                    </ThemedText>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </ThemedView>
+
           <Pressable onPress={signOut} style={styles.signOutButton}>
             <ThemedText style={styles.signOutText}>Sign out</ThemedText>
           </Pressable>
@@ -133,6 +160,14 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
   },
   section: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.three },
+  chipRow: { flexDirection: 'row', gap: Spacing.two },
+  chip: {
+    borderRadius: Spacing.four,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    backgroundColor: 'rgba(128,128,128,0.2)',
+  },
+  chipActive: { backgroundColor: '#208AEF' },
   field: { gap: Spacing.one },
   input: {
     borderRadius: Spacing.two,

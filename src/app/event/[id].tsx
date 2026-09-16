@@ -7,9 +7,11 @@ import { Calendar } from 'react-native-calendars';
 import { DeleteButton } from '@/components/delete-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { VenueMap } from '@/components/venue-map';
 import { VenueSearch, type VenueResult } from '@/components/venue-search';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
 import type { AvailabilityStatus, EventTypeStr, ShowDetail } from '@/types/api';
 
@@ -46,6 +48,7 @@ export default function EventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { authedFetch, userId, role } = useAuth();
   const theme = useTheme();
+  const { colorScheme } = useThemePreference();
 
   const [show, setShow] = useState<ShowDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -237,6 +240,7 @@ export default function EventScreen() {
               </View>
               {pickingDate && (
                 <Calendar
+                  key={colorScheme}
                   onDayPress={(day) => {
                     setEditDate(day.dateString);
                     setPickingDate(false);
@@ -341,6 +345,15 @@ export default function EventScreen() {
                 </ThemedText>
               )}
             </View>
+          )}
+
+          {!editing && (show.venue || show.city) && (
+            <VenueMap
+              lat={show.venueLat}
+              lng={show.venueLng}
+              label={show.venue || show.city || show.title}
+              address={show.venueAddress}
+            />
           )}
 
           {!editing && timeline.length > 0 && (

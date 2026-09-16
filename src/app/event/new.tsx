@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { VenueSearch, type VenueResult } from '@/components/venue-search';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
 import type { EventTypeStr } from '@/types/api';
 
@@ -28,6 +29,7 @@ export default function NewEventScreen() {
   const { date: initialDate } = useLocalSearchParams<{ date?: string }>();
   const { authedFetch } = useAuth();
   const theme = useTheme();
+  const { colorScheme } = useThemePreference();
 
   const [type, setType] = useState<EventTypeStr>('SHOW');
   const [title, setTitle] = useState('');
@@ -112,6 +114,7 @@ export default function NewEventScreen() {
           />
 
           <Calendar
+            key={colorScheme}
             current={date ?? undefined}
             minDate={todayStr()}
             onDayPress={(day) => setDate(day.dateString)}

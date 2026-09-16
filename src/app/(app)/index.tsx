@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
 import type { MemberUnavailability, Show } from '@/types/api';
 
@@ -147,6 +148,7 @@ const dayStyles = StyleSheet.create({
 export default function CalendarScreen() {
   const { authedFetch } = useAuth();
   const theme = useTheme();
+  const { colorScheme } = useThemePreference();
   const [shows, setShows] = useState<Show[]>([]);
   const [unavailable, setUnavailable] = useState<MemberUnavailability[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -248,6 +250,11 @@ export default function CalendarScreen() {
           </View>
 
           <Calendar
+            // react-native-calendars caches its header/frame styles in a
+            // ref on mount and never recomputes them if the theme prop
+            // changes later — forcing a remount on colorScheme change is
+            // the only way to make dark/light actually take effect.
+            key={colorScheme}
             markingType="multi-dot"
             markedDates={markedDates}
             dayComponent={DayCell}

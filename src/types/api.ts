@@ -39,6 +39,8 @@ export interface ShowDetail extends Show {
   guarantee: number | null;
   notes: string | null;
   venueAddress: string | null;
+  venueLat: number | null;
+  venueLng: number | null;
   createdBy: { id: string; name: string | null };
   release: { id: string; title: string } | null;
 }
