@@ -10,6 +10,7 @@ import {
 
 import { useStorageState } from '@/hooks/use-storage-state';
 import { apiUrl } from '@/lib/api';
+import { registerForPushNotifications } from '@/lib/push-notifications';
 
 interface AuthContextValue {
   /** The bearer token, or null when signed out. Truthy = signed in. */
@@ -94,6 +95,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
+  }, [session, authedFetch]);
+
+  // Fire-and-forget: register this device for push once signed in. No
+  // component state depends on the outcome (permission denied, no EAS
+  // project, running on web/simulator — all just mean no push this
+  // session), so nothing here needs to be reflected in the UI.
+  useEffect(() => {
+    if (!session) return;
+    registerForPushNotifications()
+      .then((registration) => {
+        if (!registration) return;
+        return authedFetch('/api/mobile/push-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(registration)
+        });
+      })
+      .catch(() => {
+        // Best-effort — see comment above.
+      });
   }, [session, authedFetch]);
 
   const value = useMemo(
