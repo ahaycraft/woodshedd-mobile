@@ -4,7 +4,7 @@
 
 export type InterestRole = 'ARTIST' | 'BAND' | 'PRODUCER' | 'MANAGER' | 'BOOKING_AGENT';
 
-export type BandRole = 'OWNER' | 'ADMIN' | 'MEMBER';
+export type BandRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'TOUR_MANAGER' | 'BOOKING_AGENT' | 'MEMBER';
 
 export interface Band {
   id: string;

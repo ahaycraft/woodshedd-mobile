@@ -1,11 +1,16 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth-context';
 import { useThemePreference } from '@/contexts/theme-preference-context';
 
 export default function AppTabs() {
   const { colorScheme } = useThemePreference();
   const colors = Colors[colorScheme];
+  // Booking Agent has no access to songs/releases at all (see tour-calendar's
+  // canAccessContent) — hiding the tabs here mirrors that on mobile.
+  const { role } = useAuth();
+  const canAccessContent = role !== 'BOOKING_AGENT';
 
   return (
     <NativeTabs
@@ -22,12 +27,12 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Icon sf="calendar.badge.clock" md="event" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="songs">
+      <NativeTabs.Trigger name="songs" hidden={!canAccessContent}>
         <NativeTabs.Trigger.Label>Songs</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="music.note" md="library_music" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="releases">
+      <NativeTabs.Trigger name="releases" hidden={!canAccessContent}>
         <NativeTabs.Trigger.Label>Releases</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="opticaldisc" md="album" />
       </NativeTabs.Trigger>

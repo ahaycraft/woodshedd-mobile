@@ -22,7 +22,7 @@ import { showToCalendarEvent } from '@/lib/calendar';
 import { buildItineraryMessage } from '@/lib/itinerary';
 import type { AvailabilityStatus, EventTypeStr, ShowDetail } from '@/types/api';
 
-const CAN_MANAGE_ROLES = ['OWNER', 'ADMIN'];
+const CAN_MANAGE_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'TOUR_MANAGER', 'BOOKING_AGENT'];
 const statusColors: Record<string, string> = {
   CONFIRMED: '#4d7c63',
   PENDING: '#5b6f99',
