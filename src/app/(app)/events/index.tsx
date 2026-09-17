@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useResetOnBandChange } from '@/hooks/use-reset-on-band-change';
 import { matchesQuery } from '@/lib/search';
 import type { EventTypeStr, Show } from '@/types/api';
 
@@ -86,6 +87,16 @@ export default function EventsScreen() {
     useCallback(() => {
       void load();
     }, [load])
+  );
+
+  // Otherwise a band switch (from the Account tab, which doesn't focus this
+  // screen) leaves the previous band's events on screen until this tab is
+  // next focused and load() resolves.
+  useResetOnBandChange(
+    useCallback(() => {
+      setShows([]);
+      setLoading(true);
+    }, [])
   );
 
   const filtered = useMemo(

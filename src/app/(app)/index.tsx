@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useThemePreference } from '@/contexts/theme-preference-context';
+import { useResetOnBandChange } from '@/hooks/use-reset-on-band-change';
 import { useTheme } from '@/hooks/use-theme';
 import type { MemberUnavailability, Show } from '@/types/api';
 
@@ -196,6 +197,17 @@ export default function CalendarScreen() {
       const { year, month } = visibleMonthRef.current;
       void loadMonth(year, month);
     }, [loadMonth])
+  );
+
+  // Otherwise a band switch (from the Account tab, which doesn't focus this
+  // screen) leaves the previous band's events on screen until this tab is
+  // next focused and loadMonth() resolves.
+  useResetOnBandChange(
+    useCallback(() => {
+      setShows([]);
+      setUnavailable([]);
+      setLoading(true);
+    }, [])
   );
 
   const markedDates = useMemo(() => {

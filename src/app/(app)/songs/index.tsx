@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
+import { useResetOnBandChange } from '@/hooks/use-reset-on-band-change';
 import { matchesQuery } from '@/lib/search';
 import { SONG_STATUSES, songStatusColor, songStatusLabel } from '@/lib/songs';
 import type { SongListItem, SongStatus } from '@/types/api';
@@ -73,6 +74,16 @@ export default function SongsScreen() {
     useCallback(() => {
       void load();
     }, [load])
+  );
+
+  // Otherwise a band switch (from the Account tab, which doesn't focus this
+  // screen) leaves the previous band's songs on screen until this tab is
+  // next focused and load() resolves.
+  useResetOnBandChange(
+    useCallback(() => {
+      setSongs([]);
+      setLoading(true);
+    }, [])
   );
 
   const filteredSongs = useMemo(
