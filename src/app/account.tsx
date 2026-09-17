@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 
+import { DeleteButton } from '@/components/delete-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -41,6 +42,7 @@ export default function AccountScreen() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [pushBusy, setPushBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   async function togglePush(value: boolean) {
     setPushBusy(true);
@@ -81,6 +83,20 @@ export default function AccountScreen() {
     await refreshProfile();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  // Apple requires account deletion be reachable from within the app (App
+  // Store Review Guideline 5.1.1(v)) — see the backend route for what
+  // actually happens to a deleted user's band-shared content.
+  async function deleteAccount() {
+    setDeleteError('');
+    const res = await authedFetch('/api/account', { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setDeleteError(body.error || "Couldn't delete your account");
+      return;
+    }
+    signOut();
   }
 
   return (
@@ -212,6 +228,22 @@ export default function AccountScreen() {
           <Pressable onPress={signOut} style={styles.signOutButton}>
             <ThemedText style={styles.signOutText}>Sign out</ThemedText>
           </Pressable>
+
+          <ThemedView type="backgroundElement" style={styles.section}>
+            <ThemedText type="small" themeColor="textSecondary">
+              Delete account
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Permanently deletes your account and personal data. Shows and
+              songs you added stay with your band.
+            </ThemedText>
+            {deleteError && <ThemedText style={styles.error}>{deleteError}</ThemedText>}
+            <DeleteButton
+              label="Delete account"
+              confirmLabel="Delete your account? This can't be undone."
+              onConfirm={deleteAccount}
+            />
+          </ThemedView>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
