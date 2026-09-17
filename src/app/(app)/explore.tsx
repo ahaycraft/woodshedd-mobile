@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useThemePreference } from '@/contexts/theme-preference-context';
+import { useResetOnBandChange } from '@/hooks/use-reset-on-band-change';
 import { useTheme } from '@/hooks/use-theme';
 import type { AvailabilityStatus, MemberUnavailability, Show } from '@/types/api';
 
@@ -39,6 +40,11 @@ export default function AvailabilityScreen() {
   // mount, so there's no case that needs to flip it back to true yet.
   const [loading, setLoading] = useState(true);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  // Which show's chooser is open for editing — an already-answered show
+  // shows a single status line instead, so a stray tap while scrolling
+  // can't silently flip an existing answer; only one show is edited at a
+  // time, same as respondingId above.
+  const [editingShowId, setEditingShowId] = useState<string | null>(null);
 
   const [pickingDate, setPickingDate] = useState(false);
   const [newDate, setNewDate] = useState<string | null>(null);
@@ -74,6 +80,18 @@ export default function AvailabilityScreen() {
     Promise.resolve().then(load);
   }, [load]);
 
+  // `load` above already re-runs on a band switch (it depends on
+  // authedFetch, which depends on activeBandId) — but that alone still
+  // renders the previous band's shows until the new fetch resolves. Clear
+  // them the instant the band changes so there's nothing stale to flash.
+  useResetOnBandChange(
+    useCallback(() => {
+      setShows([]);
+      setUnavailable([]);
+      setLoading(true);
+    }, [])
+  );
+
   async function respond(showId: string, status: AvailabilityStatus) {
     setRespondingId(showId);
     const res = await authedFetch(`/api/shows/${showId}/availability`, {
@@ -92,6 +110,7 @@ export default function AvailabilityScreen() {
       );
     }
     setRespondingId(null);
+    setEditingShowId(null);
   }
 
   async function addBlockedDate() {
@@ -166,6 +185,7 @@ export default function AvailabilityScreen() {
                 const mine = userId ? show.availability.find((a) => a.userId === userId) : undefined;
                 const status = mine?.status ?? 'PENDING';
                 const busy = respondingId === show.id;
+                const choosing = status === 'PENDING' || editingShowId === show.id;
                 return (
                   <View key={show.id} style={styles.showRow}>
                     <View style={styles.showInfo}>
@@ -175,26 +195,48 @@ export default function AvailabilityScreen() {
                         {show.venue ? ` — ${show.venue}` : ''}
                       </ThemedText>
                     </View>
-                    <View style={styles.respondButtons}>
-                      <Pressable
-                        disabled={busy}
-                        onPress={() => respond(show.id, 'AVAILABLE')}
-                        style={[styles.respondButton, status === 'AVAILABLE' && styles.availableActive]}>
+                    {choosing ? (
+                      <View style={styles.respondButtons}>
+                        <Pressable
+                          disabled={busy}
+                          onPress={() => respond(show.id, 'AVAILABLE')}
+                          style={[styles.respondButton, status === 'AVAILABLE' && styles.availableActive]}>
+                          <ThemedText
+                            style={[styles.respondText, status === 'AVAILABLE' && styles.respondTextActive]}>
+                            Available
+                          </ThemedText>
+                        </Pressable>
+                        <Pressable
+                          disabled={busy}
+                          onPress={() => respond(show.id, 'UNAVAILABLE')}
+                          style={[styles.respondButton, status === 'UNAVAILABLE' && styles.unavailableActive]}>
+                          <ThemedText
+                            style={[styles.respondText, status === 'UNAVAILABLE' && styles.respondTextActive]}>
+                            Can&apos;t make it
+                          </ThemedText>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      // A settled answer reads as one unambiguous line rather
+                      // than "which of these two buttons is greener" — and
+                      // changing it takes a deliberate second tap (Edit, then
+                      // a choice) instead of one stray tap in a scrolling list
+                      // silently flipping an existing response.
+                      <View style={styles.statusRow}>
                         <ThemedText
-                          style={[styles.respondText, status === 'AVAILABLE' && styles.respondTextActive]}>
-                          Available
+                          style={[
+                            styles.statusText,
+                            { color: status === 'AVAILABLE' ? AVAILABLE_COLOR : UNAVAILABLE_COLOR_ACTIVE },
+                          ]}>
+                          {status === 'AVAILABLE' ? '✓ Available' : "Can't make it"}
                         </ThemedText>
-                      </Pressable>
-                      <Pressable
-                        disabled={busy}
-                        onPress={() => respond(show.id, 'UNAVAILABLE')}
-                        style={[styles.respondButton, status === 'UNAVAILABLE' && styles.unavailableActive]}>
-                        <ThemedText
-                          style={[styles.respondText, status === 'UNAVAILABLE' && styles.respondTextActive]}>
-                          Can&apos;t make it
-                        </ThemedText>
-                      </Pressable>
-                    </View>
+                        <Pressable onPress={() => setEditingShowId(show.id)} hitSlop={8}>
+                          <ThemedText type="small" themeColor="textSecondary" style={styles.editLink}>
+                            Edit
+                          </ThemedText>
+                        </Pressable>
+                      </View>
+                    )}
                   </View>
                 );
               })
@@ -325,6 +367,9 @@ const styles = StyleSheet.create({
   unavailableActive: { backgroundColor: UNAVAILABLE_COLOR_ACTIVE, borderColor: UNAVAILABLE_COLOR_ACTIVE },
   respondText: { fontSize: 13, fontWeight: '600' },
   respondTextActive: { color: '#ffffff' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  statusText: { fontSize: 13, fontWeight: '600' },
+  editLink: { textDecorationLine: 'underline' },
   addButton: {
     backgroundColor: BRAND_BLUE,
     borderRadius: Spacing.two,

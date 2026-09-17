@@ -67,6 +67,10 @@ export default function EventScreen() {
   const [show, setShow] = useState<ShowDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [responding, setResponding] = useState(false);
+  // Whether the Available/Can't make it chooser is open — an already
+  // -answered show shows a single status line instead (see below), so a
+  // stray tap can't silently flip an existing answer.
+  const [editingAvailability, setEditingAvailability] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [editType, setEditType] = useState<EventTypeStr>('SHOW');
@@ -217,6 +221,7 @@ export default function EventScreen() {
       );
     }
     setResponding(false);
+    setEditingAvailability(false);
   }
 
   if (loading) {
@@ -458,26 +463,47 @@ export default function EventScreen() {
 
           <ThemedView type="backgroundElement" style={styles.section}>
             <ThemedText type="smallBold">My Availability</ThemedText>
-            <View style={styles.respondButtons}>
-              <Pressable
-                disabled={responding}
-                onPress={() => respond('AVAILABLE')}
-                style={[styles.respondButton, myStatus === 'AVAILABLE' && styles.availableActive]}>
+            {myStatus === 'PENDING' || editingAvailability ? (
+              <View style={styles.respondButtons}>
+                <Pressable
+                  disabled={responding}
+                  onPress={() => respond('AVAILABLE')}
+                  style={[styles.respondButton, myStatus === 'AVAILABLE' && styles.availableActive]}>
+                  <ThemedText
+                    style={[styles.respondText, myStatus === 'AVAILABLE' && styles.respondTextActive]}>
+                    Available
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  disabled={responding}
+                  onPress={() => respond('UNAVAILABLE')}
+                  style={[styles.respondButton, myStatus === 'UNAVAILABLE' && styles.unavailableActive]}>
+                  <ThemedText
+                    style={[styles.respondText, myStatus === 'UNAVAILABLE' && styles.respondTextActive]}>
+                    Can&apos;t make it
+                  </ThemedText>
+                </Pressable>
+              </View>
+            ) : (
+              // A settled answer reads as one unambiguous line rather than
+              // "which of these two buttons is greener" — and changing it
+              // takes a deliberate second tap (Edit, then a choice) instead
+              // of one stray tap silently flipping an existing response.
+              <View style={styles.availabilityStatusRow}>
                 <ThemedText
-                  style={[styles.respondText, myStatus === 'AVAILABLE' && styles.respondTextActive]}>
-                  Available
+                  style={[
+                    styles.availabilityStatusText,
+                    { color: myStatus === 'AVAILABLE' ? AVAILABLE_COLOR : UNAVAILABLE_COLOR },
+                  ]}>
+                  {myStatus === 'AVAILABLE' ? '✓ Available' : "Can't make it"}
                 </ThemedText>
-              </Pressable>
-              <Pressable
-                disabled={responding}
-                onPress={() => respond('UNAVAILABLE')}
-                style={[styles.respondButton, myStatus === 'UNAVAILABLE' && styles.unavailableActive]}>
-                <ThemedText
-                  style={[styles.respondText, myStatus === 'UNAVAILABLE' && styles.respondTextActive]}>
-                  Can&apos;t make it
-                </ThemedText>
-              </Pressable>
-            </View>
+                <Pressable onPress={() => setEditingAvailability(true)} hitSlop={8}>
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.editLink}>
+                    Edit
+                  </ThemedText>
+                </Pressable>
+              </View>
+            )}
           </ThemedView>
 
           <ThemedView type="backgroundElement" style={styles.section}>
@@ -632,6 +658,9 @@ const styles = StyleSheet.create({
   unavailableActive: { backgroundColor: UNAVAILABLE_COLOR, borderColor: UNAVAILABLE_COLOR },
   respondText: { fontSize: 13, fontWeight: '600' },
   respondTextActive: { color: '#ffffff' },
+  availabilityStatusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  availabilityStatusText: { fontSize: 13, fontWeight: '600' },
+  editLink: { textDecorationLine: 'underline' },
   memberGroup: { gap: 2 },
   memberGroupLabel: { letterSpacing: 0.5, marginBottom: 2 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
