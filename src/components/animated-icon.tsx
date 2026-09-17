@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: 76,
-    height: 71,
+    height: 76,
   },
   background: {
     borderRadius: 40,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    backgroundColor: '#100D0B',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
