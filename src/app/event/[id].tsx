@@ -634,12 +634,13 @@ export default function EventScreen() {
 
           {!editing && hasLodging && (
             <ThemedView type="backgroundElement" style={styles.section}>
+              <ThemedText type="smallBold">🏨 Lodging</ThemedText>
               {show.hotelResponsibility && (
                 <ThemedText type="small" themeColor="textSecondary">
                   {show.hotelResponsibility === 'PROMOTER' ? 'Promoter provides' : 'Band arranges'}
                 </ThemedText>
               )}
-              <ThemedText type="smallBold">🏨 {show.hotelName || 'Lodging'}</ThemedText>
+              {show.hotelName && <ThemedText>{show.hotelName}</ThemedText>}
               {show.hotelAddress && (
                 <ThemedText type="small" themeColor="textSecondary">
                   {show.hotelAddress}
