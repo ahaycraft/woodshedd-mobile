@@ -26,6 +26,8 @@ import type {
   BandDetail,
   EventTypeStr,
   HotelResponsibility,
+  SetlistSong,
+  SetlistSummary,
   ShowDetail,
 } from '@/types/api';
 
@@ -65,6 +67,14 @@ function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+function moveSong(songs: SetlistSong[], index: number, direction: -1 | 1): SetlistSong[] {
+  const target = index + direction;
+  if (target < 0 || target >= songs.length) return songs;
+  const next = [...songs];
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
+}
+
 export default function EventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { authedFetch, userId, role, activeBandId } = useAuth();
@@ -102,6 +112,12 @@ export default function EventScreen() {
   const [guestNames, setGuestNames] = useState('');
   const [savingGuests, setSavingGuests] = useState(false);
   const [guestError, setGuestError] = useState<string | null>(null);
+  const [setlistTemplates, setSetlistTemplates] = useState<SetlistSummary[]>([]);
+  const [newSongTitle, setNewSongTitle] = useState('');
+  const [addingSong, setAddingSong] = useState(false);
+  const [pickingTemplate, setPickingTemplate] = useState(false);
+  const [pendingTemplate, setPendingTemplate] = useState<SetlistSummary | null>(null);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [pickingDate, setPickingDate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -151,6 +167,14 @@ export default function EventScreen() {
   useEffect(() => {
     Promise.resolve().then(load);
   }, [load]);
+
+  useEffect(() => {
+    if (!activeBandId) return;
+    Promise.resolve().then(async () => {
+      const res = await authedFetch(`/api/bands/${activeBandId}/setlists`);
+      if (res.ok) setSetlistTemplates(await res.json());
+    });
+  }, [authedFetch, activeBandId]);
 
   function startEditing(current: ShowDetail) {
     setEditType(current.type);
@@ -307,6 +331,82 @@ export default function EventScreen() {
     setAddingGuests(false);
     setGuestNames('');
     setGuestError(null);
+  }
+
+  async function addSong() {
+    if (!newSongTitle.trim()) return;
+    setAddingSong(true);
+    const res = await authedFetch(`/api/shows/${id}/setlist/songs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newSongTitle }),
+    });
+    setAddingSong(false);
+    if (res.ok) {
+      const song = await res.json();
+      setShow((prev) =>
+        prev
+          ? {
+              ...prev,
+              setlist: prev.setlist
+                ? { ...prev.setlist, songs: [...prev.setlist.songs, song] }
+                : { sourceSetlistName: null, songs: [song] },
+            }
+          : prev
+      );
+      setNewSongTitle('');
+    }
+  }
+
+  async function removeSong(songId: string) {
+    setShow((prev) =>
+      prev && prev.setlist
+        ? { ...prev, setlist: { ...prev.setlist, songs: prev.setlist.songs.filter((s) => s.id !== songId) } }
+        : prev
+    );
+    await authedFetch(`/api/shows/${id}/setlist/songs/${songId}`, { method: 'DELETE' });
+  }
+
+  function reorderSong(index: number, direction: -1 | 1) {
+    if (!show?.setlist) return;
+    const next = moveSong(show.setlist.songs, index, direction);
+    setShow((prev) => (prev && prev.setlist ? { ...prev, setlist: { ...prev.setlist, songs: next } } : prev));
+    void authedFetch(`/api/shows/${id}/setlist/songs`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ songIds: next.map((s) => s.id) }),
+    });
+  }
+
+  function onSelectTemplate(template: SetlistSummary) {
+    setPickingTemplate(false);
+    if (show?.setlist && show.setlist.songs.length > 0) {
+      setPendingTemplate(template);
+    } else {
+      void applyTemplate(template.id);
+    }
+  }
+
+  async function applyTemplate(setlistId: string) {
+    setApplyingTemplate(true);
+    const res = await authedFetch(`/api/shows/${id}/setlist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ setlistId }),
+    });
+    setApplyingTemplate(false);
+    setPendingTemplate(null);
+    if (res.ok) {
+      const data = await res.json();
+      setShow((prev) =>
+        prev ? { ...prev, setlist: { sourceSetlistName: data.sourceSetlistName, songs: data.songs } } : prev
+      );
+    }
+  }
+
+  async function clearSetlist() {
+    setShow((prev) => (prev ? { ...prev, setlist: null } : prev));
+    await authedFetch(`/api/shows/${id}/setlist`, { method: 'DELETE' });
   }
 
   function getHotelDirections() {
@@ -841,6 +941,124 @@ export default function EventScreen() {
             </ThemedView>
           )}
 
+          {!editing && (
+            <ThemedView type="backgroundElement" style={styles.section}>
+              <View style={styles.statusControlsHeader}>
+                <ThemedText type="smallBold">Setlist</ThemedText>
+                {show.setlist?.sourceSetlistName && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    From: {show.setlist.sourceSetlistName}
+                  </ThemedText>
+                )}
+              </View>
+
+              {setlistTemplates.length > 0 && (
+                <>
+                  <Pressable onPress={() => setPickingTemplate((p) => !p)}>
+                    <View style={[styles.input, { backgroundColor: theme.backgroundSelected }]}>
+                      <ThemedText themeColor="textSecondary">
+                        {show.setlist && show.setlist.songs.length > 0
+                          ? 'Apply a different template…'
+                          : 'Apply a template…'}
+                      </ThemedText>
+                    </View>
+                  </Pressable>
+                  {pickingTemplate && (
+                    <View style={[styles.pickerList, { backgroundColor: theme.backgroundSelected }]}>
+                      {setlistTemplates.map((t) => (
+                        <Pressable key={t.id} style={styles.pickerRow} onPress={() => onSelectTemplate(t)}>
+                          <ThemedText type="small">{t.name}</ThemedText>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+
+              {pendingTemplate && (
+                <View style={styles.confirmAnywayBox}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Apply &ldquo;{pendingTemplate.name}&rdquo;? This replaces the show&apos;s current setlist.
+                  </ThemedText>
+                  <View style={styles.formButtons}>
+                    <Pressable onPress={() => setPendingTemplate(null)} style={styles.cancelButton}>
+                      <ThemedText>Cancel</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      disabled={applyingTemplate}
+                      onPress={() => applyTemplate(pendingTemplate.id)}
+                      style={[styles.saveButton, applyingTemplate && styles.saveButtonDisabled]}>
+                      <ThemedText style={styles.saveButtonText}>
+                        {applyingTemplate ? 'Applying…' : 'Apply'}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              {!show.setlist || show.setlist.songs.length === 0 ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  No songs yet.
+                </ThemedText>
+              ) : (
+                show.setlist.songs.map((s, i) => (
+                  <View key={s.id} style={styles.songRow}>
+                    <ThemedText style={styles.songTitle} numberOfLines={1}>
+                      {s.title}
+                    </ThemedText>
+                    <View style={styles.songActions}>
+                      <Pressable disabled={i === 0} onPress={() => reorderSong(i, -1)} hitSlop={8}>
+                        <SymbolView
+                          name={{ ios: 'chevron.up', android: 'keyboard_arrow_up', web: 'keyboard_arrow_up' }}
+                          size={16}
+                          tintColor={i === 0 ? theme.textSecondary : theme.text}
+                        />
+                      </Pressable>
+                      <Pressable
+                        disabled={i === show.setlist!.songs.length - 1}
+                        onPress={() => reorderSong(i, 1)}
+                        hitSlop={8}>
+                        <SymbolView
+                          name={{ ios: 'chevron.down', android: 'keyboard_arrow_down', web: 'keyboard_arrow_down' }}
+                          size={16}
+                          tintColor={i === show.setlist!.songs.length - 1 ? theme.textSecondary : theme.text}
+                        />
+                      </Pressable>
+                      <Pressable onPress={() => removeSong(s.id)} hitSlop={8}>
+                        <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} size={16} tintColor={theme.textSecondary} />
+                      </Pressable>
+                    </View>
+                  </View>
+                ))
+              )}
+
+              <View style={styles.editRow}>
+                <TextInput
+                  style={[styles.input, styles.flex1, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
+                  placeholder="Add a song…"
+                  placeholderTextColor={theme.textSecondary}
+                  value={newSongTitle}
+                  onChangeText={setNewSongTitle}
+                  onSubmitEditing={addSong}
+                />
+                <Pressable
+                  disabled={addingSong || !newSongTitle.trim()}
+                  onPress={addSong}
+                  style={[styles.saveButton, (addingSong || !newSongTitle.trim()) && styles.saveButtonDisabled]}>
+                  <ThemedText style={styles.saveButtonText}>{addingSong ? '…' : 'Add'}</ThemedText>
+                </Pressable>
+              </View>
+
+              {show.setlist && show.setlist.songs.length > 0 && (
+                <Pressable onPress={clearSetlist}>
+                  <ThemedText type="small" style={styles.error}>
+                    Clear setlist
+                  </ThemedText>
+                </Pressable>
+              )}
+            </ThemedView>
+          )}
+
           {!editing && canManageEvent && (
             <ThemedView type="backgroundElement" style={styles.section}>
               <View style={styles.statusControlsHeader}>
@@ -943,6 +1161,16 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   linkText: { color: '#3c87f7', fontWeight: '600' },
   lodgingTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
+  songRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two, paddingVertical: Spacing.one },
+  songTitle: { flex: 1 },
+  songActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  pickerList: { borderRadius: Spacing.two, overflow: 'hidden' },
+  pickerRow: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(128,128,128,0.2)',
+  },
   addressText: { marginTop: -Spacing.one },
   title: { fontSize: 24, lineHeight: 30 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.one },

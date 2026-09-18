@@ -110,6 +110,9 @@ export default function SongsScreen() {
               Songs
             </ThemedText>
             <View style={styles.headerActions}>
+              <Pressable onPress={() => router.push('/setlists')} style={styles.addButton}>
+                <ThemedText style={styles.addButtonText}>Setlists</ThemedText>
+              </Pressable>
               <Pressable onPress={() => router.push('/songs/new')} style={styles.addButton}>
                 <ThemedText style={styles.addButtonText}>+ Add</ThemedText>
               </Pressable>

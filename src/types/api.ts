@@ -81,6 +81,9 @@ export interface ShowDetail extends Show {
   // Free text, appended to via POST /api/shows/:id/guests rather than
   // edited in place — see that endpoint's comment on the backend.
   guestList: string | null;
+  // The show's own setlist copy, if a template's been applied or songs
+  // added from scratch — see /api/shows/:id/setlist on the backend.
+  setlist: { sourceSetlistName: string | null; songs: SetlistSong[] } | null;
   createdBy: { id: string; name: string | null };
   release: { id: string; title: string } | null;
   /** Total band membership — used for the "X of Y available" confirm/cancel
@@ -108,6 +111,26 @@ export interface BandMemberLoyalty {
   userId: string;
   name: string;
   accounts: LoyaltyAccount[];
+}
+
+export interface SetlistSong {
+  id: string;
+  title: string;
+}
+
+// Shape returned by GET /api/bands/:id/setlists — the band's reusable
+// named templates (not a show's own copy of one).
+export interface SetlistSummary {
+  id: string;
+  name: string;
+  _count: { songs: number };
+}
+
+// Shape returned by GET /api/setlists/:id.
+export interface SetlistDetail {
+  id: string;
+  name: string;
+  songs: SetlistSong[];
 }
 
 export interface MemberUnavailability {

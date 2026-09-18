@@ -38,6 +38,14 @@ function RootNavigator() {
             name="travel"
             options={{ headerShown: true, title: 'Travel & Rewards', headerBackTitle: 'Account' }}
           />
+          <Stack.Screen
+            name="setlists/index"
+            options={{ headerShown: true, title: 'Setlists', headerBackTitle: 'Songs' }}
+          />
+          <Stack.Screen
+            name="setlists/[id]"
+            options={{ headerShown: true, title: 'Setlist', headerBackTitle: 'Setlists' }}
+          />
         </Stack.Protected>
         <Stack.Protected guard={!session}>
           <Stack.Screen name="sign-in" />
