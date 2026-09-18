@@ -103,6 +103,10 @@ export default function EventScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [confirmingAnyway, setConfirmingAnyway] = useState(false);
+  // A confirmed show reads as one settled line (mirroring My Availability
+  // above) instead of exposing Mark Pending/Cancel Show as standing
+  // buttons — changing a confirmed show takes a deliberate Edit tap first.
+  const [editingStatus, setEditingStatus] = useState(false);
 
   function onVenueChange(text: string) {
     setEditVenue(text);
@@ -294,6 +298,7 @@ export default function EventScreen() {
     });
     if (res.ok) await load();
     setStatusUpdating(false);
+    setEditingStatus(false);
   }
 
   async function respond(status: AvailabilityStatus) {
@@ -765,32 +770,45 @@ export default function EventScreen() {
                   {available.length} of {show.memberCount} available
                 </ThemedText>
               </View>
-              <View style={styles.chipRow}>
-                {show.status !== 'CONFIRMED' && (
-                  <Pressable
-                    disabled={statusUpdating}
-                    onPress={() => (everyoneAvailable ? updateStatus('CONFIRMED') : setConfirmingAnyway(true))}
-                    style={[styles.statusActionChip, { backgroundColor: CONFIRMED_COLOR }]}>
-                    <ThemedText style={styles.statusActionText}>Confirm {Noun}</ThemedText>
+              {show.status === 'CONFIRMED' && !editingStatus ? (
+                <View style={styles.availabilityStatusRow}>
+                  <ThemedText style={[styles.availabilityStatusText, { color: CONFIRMED_COLOR }]}>
+                    ✓ Confirmed
+                  </ThemedText>
+                  <Pressable onPress={() => setEditingStatus(true)} hitSlop={8}>
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.editLink}>
+                      Edit
+                    </ThemedText>
                   </Pressable>
-                )}
-                {show.status !== 'PENDING' && (
-                  <Pressable
-                    disabled={statusUpdating}
-                    onPress={() => updateStatus('PENDING')}
-                    style={[styles.statusActionChip, { backgroundColor: statusColors.PENDING }]}>
-                    <ThemedText style={styles.statusActionText}>Mark Pending</ThemedText>
-                  </Pressable>
-                )}
-                {show.status !== 'CANCELLED' && (
-                  <Pressable
-                    disabled={statusUpdating}
-                    onPress={() => updateStatus('CANCELLED')}
-                    style={[styles.statusActionChip, { backgroundColor: CANCELLED_COLOR }]}>
-                    <ThemedText style={styles.statusActionText}>Cancel {Noun}</ThemedText>
-                  </Pressable>
-                )}
-              </View>
+                </View>
+              ) : (
+                <View style={styles.chipRow}>
+                  {show.status !== 'CONFIRMED' && (
+                    <Pressable
+                      disabled={statusUpdating}
+                      onPress={() => (everyoneAvailable ? updateStatus('CONFIRMED') : setConfirmingAnyway(true))}
+                      style={[styles.statusActionChip, { backgroundColor: CONFIRMED_COLOR }]}>
+                      <ThemedText style={styles.statusActionText}>Confirm {Noun}</ThemedText>
+                    </Pressable>
+                  )}
+                  {show.status !== 'PENDING' && (
+                    <Pressable
+                      disabled={statusUpdating}
+                      onPress={() => updateStatus('PENDING')}
+                      style={[styles.statusActionChip, { backgroundColor: statusColors.PENDING }]}>
+                      <ThemedText style={styles.statusActionText}>Mark Pending</ThemedText>
+                    </Pressable>
+                  )}
+                  {show.status !== 'CANCELLED' && (
+                    <Pressable
+                      disabled={statusUpdating}
+                      onPress={() => updateStatus('CANCELLED')}
+                      style={[styles.statusActionChip, { backgroundColor: CANCELLED_COLOR }]}>
+                      <ThemedText style={styles.statusActionText}>Cancel {Noun}</ThemedText>
+                    </Pressable>
+                  )}
+                </View>
+              )}
 
               {confirmingAnyway && (
                 <View style={styles.confirmAnywayBox}>
