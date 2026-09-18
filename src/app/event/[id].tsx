@@ -7,6 +7,7 @@ import { Calendar } from 'react-native-calendars';
 // (calendar-read-based); createEventInCalendarAsync — the systemProvidedUI
 // dialog that needs no calendar-read permission — only lives in /legacy.
 import * as ExpoCalendar from 'expo-calendar/legacy';
+import * as MailComposer from 'expo-mail-composer';
 import { SymbolView } from 'expo-symbols';
 
 import { DeleteButton } from '@/components/delete-button';
@@ -20,7 +21,7 @@ import { useThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
 import { showToCalendarEvent } from '@/lib/calendar';
 import { buildItineraryMessage } from '@/lib/itinerary';
-import type { AvailabilityStatus, EventTypeStr, ShowDetail } from '@/types/api';
+import type { AvailabilityStatus, BandDetail, EventTypeStr, ShowDetail } from '@/types/api';
 
 const CAN_MANAGE_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'TOUR_MANAGER', 'BOOKING_AGENT'];
 const statusColors: Record<string, string> = {
@@ -60,7 +61,7 @@ function formatTime(dateStr: string) {
 
 export default function EventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { authedFetch, userId, role } = useAuth();
+  const { authedFetch, userId, role, activeBandId } = useAuth();
   const theme = useTheme();
   const { colorScheme } = useThemePreference();
 
@@ -82,6 +83,10 @@ export default function EventScreen() {
   const [editVenueAddress, setEditVenueAddress] = useState<string | null>(null);
   const [editVenueCoords, setEditVenueCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [editNotes, setEditNotes] = useState('');
+  const [editVenueContactName, setEditVenueContactName] = useState('');
+  const [editVenueContactEmail, setEditVenueContactEmail] = useState('');
+  const [emailingRider, setEmailingRider] = useState(false);
+  const [riderError, setRiderError] = useState<string | null>(null);
   const [pickingDate, setPickingDate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -124,6 +129,8 @@ export default function EventScreen() {
     setEditVenueAddress(current.venueAddress ?? null);
     setEditVenueCoords(null);
     setEditNotes(current.notes ?? '');
+    setEditVenueContactName(current.venueContactName ?? '');
+    setEditVenueContactEmail(current.venueContactEmail ?? '');
     setPickingDate(false);
     setSaveError(null);
     setEditing(true);
@@ -147,6 +154,10 @@ export default function EventScreen() {
         venueLat: editVenueCoords?.lat,
         venueLng: editVenueCoords?.lng,
         notes: editNotes.trim() || null,
+        ...(editType === 'SHOW' && {
+          venueContactName: editVenueContactName.trim() || null,
+          venueContactEmail: editVenueContactEmail.trim() || null,
+        }),
       }),
     });
     setSaving(false);
@@ -190,6 +201,40 @@ export default function EventScreen() {
       await ExpoCalendar.createEventInCalendarAsync(showToCalendarEvent(show));
     } catch {
       // Best-effort — the user cancelled, or the OS declined.
+    }
+  }
+
+  // Opens the device's mail composer pre-filled with the band's rider as the
+  // body — no server-side sending, so this is just local data assembly. The
+  // rider lives on the band (not the show), so it's fetched fresh here
+  // rather than kept in ShowDetail.
+  async function emailRider() {
+    if (!show?.venueContactEmail || !activeBandId) return;
+    setRiderError(null);
+    setEmailingRider(true);
+    try {
+      const available = await MailComposer.isAvailableAsync();
+      if (!available) {
+        setRiderError("Mail isn't set up on this device.");
+        return;
+      }
+      const res = await authedFetch(`/api/bands/${activeBandId}`);
+      if (!res.ok) {
+        setRiderError("Couldn't load the band's rider.");
+        return;
+      }
+      const band: BandDetail = await res.json();
+      if (!band.rider) {
+        setRiderError('No rider set yet — add one from the Account screen.');
+        return;
+      }
+      await MailComposer.composeAsync({
+        recipients: [show.venueContactEmail],
+        subject: `${band.name} — Rider for ${show.title}`,
+        body: band.rider,
+      });
+    } finally {
+      setEmailingRider(false);
     }
   }
 
@@ -358,6 +403,27 @@ export default function EventScreen() {
                 multiline
               />
 
+              {editType === 'SHOW' && (
+                <View style={styles.editRow}>
+                  <TextInput
+                    style={[styles.input, styles.flex1, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
+                    placeholder="Promoter/venue contact"
+                    placeholderTextColor={theme.textSecondary}
+                    value={editVenueContactName}
+                    onChangeText={setEditVenueContactName}
+                  />
+                  <TextInput
+                    style={[styles.input, styles.flex1, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
+                    placeholder="Contact email"
+                    placeholderTextColor={theme.textSecondary}
+                    value={editVenueContactEmail}
+                    onChangeText={setEditVenueContactEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+              )}
+
               {saveError && <ThemedText style={styles.error}>{saveError}</ThemedText>}
 
               <View style={styles.formButtons}>
@@ -429,8 +495,19 @@ export default function EventScreen() {
                 />
                 <ThemedText type="small">Add to calendar</ThemedText>
               </Pressable>
+              {show.venueContactEmail && (
+                <Pressable
+                  onPress={emailRider}
+                  disabled={emailingRider}
+                  style={[styles.quickActionButton, emailingRider && styles.quickActionDisabled]}>
+                  <SymbolView name={{ ios: 'envelope', android: 'mail', web: 'mail' }} size={14} tintColor={theme.text} />
+                  <ThemedText type="small">Email rider to promoter</ThemedText>
+                </Pressable>
+              )}
             </View>
           )}
+
+          {!editing && riderError && <ThemedText style={styles.error}>{riderError}</ThemedText>}
 
           {!editing && (show.venue || show.city) && (
             <VenueMap

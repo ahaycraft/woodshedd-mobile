@@ -13,6 +13,14 @@ export interface Band {
   role: BandRole;
 }
 
+// Shape returned by GET/PATCH /api/bands/:id — the band's rider, fetched
+// separately from the `Band` list above since most screens don't need it.
+export interface BandDetail {
+  id: string;
+  name: string;
+  rider: string | null;
+}
+
 // Shape returned by GET /api/mobile/me.
 export interface MeResponse {
   id: string;
@@ -61,6 +69,8 @@ export interface ShowDetail extends Show {
   venueAddress: string | null;
   venueLat: number | null;
   venueLng: number | null;
+  venueContactName: string | null;
+  venueContactEmail: string | null;
   createdBy: { id: string; name: string | null };
   release: { id: string; title: string } | null;
   /** Total band membership — used for the "X of Y available" confirm/cancel
