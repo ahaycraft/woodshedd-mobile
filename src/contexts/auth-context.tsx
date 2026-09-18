@@ -25,9 +25,11 @@ interface AuthContextValue {
    *  that resolves — the bearer token is an encrypted JWE, so there's no
    *  way to read it out client-side without asking the backend. */
   userId: string | null;
-  /** The signed-in user's band role, from the same call as `userId`. Used
-   *  to mirror the web app's canManage check (OWNER/ADMIN or the item's
-   *  own creator) for things like deleting someone else's comment. */
+  /** The signed-in user's role in the *active* band (from `bands`, matched
+   *  against `activeBandId`) — used to mirror the web app's per-band
+   *  permission checks (OWNER/ADMIN or the item's own creator) for things
+   *  like deleting someone else's comment. Distinct from the global site
+   *  role on `MeResponse.role`, which this deliberately ignores. */
   role: string | null;
   /** Profile fields shown on the Account screen — same GET /api/mobile/me
    *  call as userId/role, kept separate since nothing else in the app
@@ -142,8 +144,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       const res = await authedFetch('/api/mobile/me');
       const me: MeResponse | null = res.ok ? await res.json() : null;
+      const resolvedBandId = me?.activeBandId ?? activeBandId;
       setUserId(me?.id ?? null);
-      setRole(me?.role ?? null);
+      setRole(me?.bands.find((b) => b.id === resolvedBandId)?.role ?? null);
       setProfile(me ? { name: me.name, email: me.email, phone: me.phone ?? null } : null);
       setBands(me?.bands ?? []);
       // Mirrors back whatever the backend actually resolved — covers the

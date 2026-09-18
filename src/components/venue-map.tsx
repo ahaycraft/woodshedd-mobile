@@ -1,7 +1,9 @@
 import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Mapbox, { Camera, MapView, PointAnnotation } from '@rnmapbox/maps';
+import { SymbolView } from 'expo-symbols';
 
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
@@ -48,6 +50,7 @@ export function VenueMap({
   address?: string | null;
 }) {
   const hasCoords = lat != null && lng != null;
+  const theme = useTheme();
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
@@ -80,13 +83,33 @@ export function VenueMap({
           <View style={styles.buttonRow}>
             <Pressable
               style={styles.button}
+              accessibilityLabel="Food nearby"
               onPress={() => openMapsSearch('restaurants', { lat, lng })}>
-              <ThemedText style={styles.buttonText}>🍽️ Food nearby</ThemedText>
+              <SymbolView
+                name={{ ios: 'fork.knife', android: 'restaurant', web: 'restaurant' }}
+                size={24}
+                tintColor={theme.text}
+              />
             </Pressable>
             <Pressable
               style={styles.button}
+              accessibilityLabel="Gas nearby"
               onPress={() => openMapsSearch('gas station', { lat, lng })}>
-              <ThemedText style={styles.buttonText}>⛽ Gas nearby</ThemedText>
+              <SymbolView
+                name={{ ios: 'fuelpump.fill', android: 'local_gas_station', web: 'local_gas_station' }}
+                size={24}
+                tintColor={theme.text}
+              />
+            </Pressable>
+            <Pressable
+              style={styles.button}
+              accessibilityLabel="Hotels nearby"
+              onPress={() => openMapsSearch('hotels', { lat, lng })}>
+              <SymbolView
+                name={{ ios: 'bed.double.fill', android: 'hotel', web: 'hotel' }}
+                size={24}
+                tintColor={theme.text}
+              />
             </Pressable>
           </View>
         </>
@@ -120,12 +143,12 @@ const styles = StyleSheet.create({
   buttonRow: { flexDirection: 'row', gap: Spacing.two },
   button: {
     flex: 1,
-    paddingVertical: Spacing.two,
+    paddingVertical: Spacing.three,
     borderRadius: Spacing.two,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(128,128,128,0.3)',
   },
-  buttonText: { color: '#3c87f7', fontWeight: '600', fontSize: 13 },
   link: { color: '#3c87f7' },
 });

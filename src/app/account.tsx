@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
@@ -10,6 +10,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useThemePreference, type ThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
+import type { BandDetail } from '@/types/api';
 
 const THEME_OPTIONS: {
   value: ThemePreference;
@@ -28,6 +29,7 @@ export default function AccountScreen() {
     bands,
     activeBandId,
     switchBand,
+    role,
     pushEnabled,
     pushLoading,
     setPushEnabled,
@@ -43,6 +45,51 @@ export default function AccountScreen() {
   const [error, setError] = useState('');
   const [pushBusy, setPushBusy] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  const canManageBand = role === 'OWNER' || role === 'ADMIN';
+  const [bandDetail, setBandDetail] = useState<BandDetail | null>(null);
+  const [riderText, setRiderText] = useState('');
+  const [editingRider, setEditingRider] = useState(false);
+  const [riderBusy, setRiderBusy] = useState(false);
+  const [riderError, setRiderError] = useState('');
+
+  const loadBand = useCallback(async () => {
+    if (!activeBandId) return;
+    const res = await authedFetch(`/api/bands/${activeBandId}`);
+    if (!res.ok) return;
+    const band: BandDetail = await res.json();
+    setBandDetail(band);
+    setRiderText(band.rider ?? '');
+  }, [authedFetch, activeBandId]);
+
+  useEffect(() => {
+    Promise.resolve().then(loadBand);
+  }, [loadBand]);
+
+  async function saveRider() {
+    if (!activeBandId || riderText === (bandDetail?.rider ?? '')) return;
+    setRiderBusy(true);
+    setRiderError('');
+    const res = await authedFetch(`/api/bands/${activeBandId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rider: riderText }),
+    });
+    setRiderBusy(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setRiderError(body.error || "Couldn't save");
+      return;
+    }
+    await loadBand();
+    setEditingRider(false);
+  }
+
+  function cancelEditRider() {
+    setRiderText(bandDetail?.rider ?? '');
+    setEditingRider(false);
+    setRiderError('');
+  }
 
   async function togglePush(value: boolean) {
     setPushBusy(true);
@@ -180,6 +227,56 @@ export default function AccountScreen() {
             </ThemedView>
           )}
 
+          {activeBandId && (
+            <ThemedView type="backgroundElement" style={styles.section}>
+              <ThemedText type="small" themeColor="textSecondary">
+                Rider
+              </ThemedText>
+              {canManageBand && editingRider ? (
+                <>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.riderInput,
+                      { backgroundColor: theme.backgroundSelected, color: theme.text },
+                    ]}
+                    placeholder="Backline, hospitality, stage plot, etc."
+                    placeholderTextColor={theme.textSecondary}
+                    value={riderText}
+                    onChangeText={setRiderText}
+                    multiline
+                  />
+                  {riderError && <ThemedText style={styles.error}>{riderError}</ThemedText>}
+                  <View style={styles.formButtons}>
+                    <Pressable onPress={cancelEditRider} style={styles.cancelButton}>
+                      <ThemedText>Cancel</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      disabled={riderBusy || riderText === (bandDetail?.rider ?? '')}
+                      onPress={saveRider}
+                      style={[
+                        styles.saveButton,
+                        (riderBusy || riderText === (bandDetail?.rider ?? '')) && styles.saveButtonDisabled,
+                      ]}>
+                      <ThemedText style={styles.saveButtonText}>{riderBusy ? 'Saving…' : 'Save'}</ThemedText>
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <ThemedText themeColor={bandDetail?.rider ? undefined : 'textSecondary'}>
+                    {bandDetail?.rider || 'No rider set yet.'}
+                  </ThemedText>
+                  {canManageBand && (
+                    <Pressable onPress={() => setEditingRider(true)}>
+                      <ThemedText style={styles.linkText}>Edit</ThemedText>
+                    </Pressable>
+                  )}
+                </>
+              )}
+            </ThemedView>
+          )}
+
           {!pushLoading && (
             <ThemedView type="backgroundElement" style={styles.section}>
               <View style={styles.switchRow}>
@@ -294,6 +391,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     fontSize: 15,
   },
+  riderInput: { minHeight: 100, textAlignVertical: 'top' },
+  linkText: { color: '#208AEF', fontWeight: '600' },
+  formButtons: { flexDirection: 'row', gap: Spacing.two, justifyContent: 'flex-end' },
+  cancelButton: { paddingVertical: Spacing.two, paddingHorizontal: Spacing.three },
   error: { color: '#dc2626' },
   saveButton: {
     backgroundColor: '#208AEF',
