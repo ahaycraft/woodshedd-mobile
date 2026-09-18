@@ -185,9 +185,18 @@ export default function AvailabilityScreen() {
                 const mine = userId ? show.availability.find((a) => a.userId === userId) : undefined;
                 const status = mine?.status ?? 'PENDING';
                 const busy = respondingId === show.id;
-                const choosing = status === 'PENDING' || editingShowId === show.id;
+                const needsResponse = status === 'PENDING';
+                const choosing = needsResponse || editingShowId === show.id;
                 return (
-                  <View key={show.id} style={styles.showRow}>
+                  <View
+                    key={show.id}
+                    style={[
+                      styles.showRow,
+                      needsResponse && [
+                        styles.needsResponse,
+                        { borderColor: theme.text, borderBottomColor: theme.text },
+                      ],
+                    ]}>
                     <View style={styles.showInfo}>
                       <ThemedText style={styles.showTitle}>{show.title}</ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
@@ -351,6 +360,16 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(128,128,128,0.2)',
+  },
+  // Outlines a not-yet-answered show so it's easy to spot at a glance
+  // among ones already responded to — borderColor is set inline per-row
+  // since it needs the current theme's text color, not a fixed white that
+  // would vanish in light mode.
+  needsResponse: {
+    borderWidth: 1.5,
+    borderBottomWidth: 1.5,
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.two,
   },
   showInfo: { gap: 2 },
   showTitle: { fontWeight: '600' },
