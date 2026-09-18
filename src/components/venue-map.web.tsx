@@ -48,6 +48,13 @@ export function VenueMap({
             }>
             <ThemedText style={styles.buttonText}>⛽ Gas nearby</ThemedText>
           </Pressable>
+          <Pressable
+            style={styles.button}
+            onPress={() =>
+              Linking.openURL(`https://www.google.com/maps/search/hotels/@${lat},${lng},15z`)
+            }>
+            <ThemedText style={styles.buttonText}>🏨 Hotels nearby</ThemedText>
+          </Pressable>
         </View>
       ) : (
         <ThemedText type="small" themeColor="textSecondary">
@@ -72,15 +79,16 @@ export function VenueMap({
 
 const styles = StyleSheet.create({
   card: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
-  buttonRow: { flexDirection: 'row', gap: Spacing.two },
+  buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   button: {
     flex: 1,
+    minWidth: 100,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(128,128,128,0.3)',
   },
-  buttonText: { color: '#3c87f7', fontWeight: '600', fontSize: 13 },
+  buttonText: { fontWeight: '600', fontSize: 13 },
   link: { color: '#3c87f7' },
 });

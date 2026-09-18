@@ -88,6 +88,11 @@ export function VenueMap({
               onPress={() => openMapsSearch('gas station', { lat, lng })}>
               <ThemedText style={styles.buttonText}>⛽ Gas nearby</ThemedText>
             </Pressable>
+            <Pressable
+              style={styles.button}
+              onPress={() => openMapsSearch('hotels', { lat, lng })}>
+              <ThemedText style={styles.buttonText}>🏨 Hotels nearby</ThemedText>
+            </Pressable>
           </View>
         </>
       ) : (
@@ -117,15 +122,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fafafa',
   },
-  buttonRow: { flexDirection: 'row', gap: Spacing.two },
+  buttonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   button: {
     flex: 1,
+    minWidth: 100,
     paddingVertical: Spacing.two,
     borderRadius: Spacing.two,
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(128,128,128,0.3)',
   },
-  buttonText: { color: '#3c87f7', fontWeight: '600', fontSize: 13 },
+  // Plain, uncolored — matches the bottom nav's untinted icon style rather
+  // than the blue accent used for hyperlink-style text elsewhere.
+  buttonText: { fontWeight: '600', fontSize: 13 },
   link: { color: '#3c87f7' },
 });
