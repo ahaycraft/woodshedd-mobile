@@ -13,7 +13,7 @@ import { SymbolView } from 'expo-symbols';
 import { DeleteButton } from '@/components/delete-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { VenueMap } from '@/components/venue-map';
+import { VenueMap, openMapsSearch } from '@/components/venue-map';
 import { VenueSearch, type VenueResult } from '@/components/venue-search';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
@@ -21,7 +21,13 @@ import { useThemePreference } from '@/contexts/theme-preference-context';
 import { useTheme } from '@/hooks/use-theme';
 import { showToCalendarEvent } from '@/lib/calendar';
 import { buildItineraryMessage } from '@/lib/itinerary';
-import type { AvailabilityStatus, BandDetail, EventTypeStr, ShowDetail } from '@/types/api';
+import type {
+  AvailabilityStatus,
+  BandDetail,
+  EventTypeStr,
+  HotelResponsibility,
+  ShowDetail,
+} from '@/types/api';
 
 const CAN_MANAGE_ROLES = ['OWNER', 'ADMIN', 'MANAGER', 'TOUR_MANAGER', 'BOOKING_AGENT'];
 const statusColors: Record<string, string> = {
@@ -85,6 +91,11 @@ export default function EventScreen() {
   const [editNotes, setEditNotes] = useState('');
   const [editVenueContactName, setEditVenueContactName] = useState('');
   const [editVenueContactEmail, setEditVenueContactEmail] = useState('');
+  const [editHotelResponsibility, setEditHotelResponsibility] = useState<HotelResponsibility | ''>('');
+  const [editHotelName, setEditHotelName] = useState('');
+  const [editHotelAddress, setEditHotelAddress] = useState<string | null>(null);
+  const [editHotelCoords, setEditHotelCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [editHotelNotes, setEditHotelNotes] = useState('');
   const [emailingRider, setEmailingRider] = useState(false);
   const [riderError, setRiderError] = useState<string | null>(null);
   const [pickingDate, setPickingDate] = useState(false);
@@ -109,6 +120,20 @@ export default function EventScreen() {
     if (result.state) setEditState(result.state);
   }
 
+  function onHotelChange(text: string) {
+    setEditHotelName(text);
+    setEditHotelAddress(null);
+    setEditHotelCoords(null);
+  }
+
+  function onHotelSelect(result: VenueResult) {
+    setEditHotelName(result.name);
+    setEditHotelAddress(result.address || null);
+    setEditHotelCoords(
+      result.lat != null && result.lng != null ? { lat: result.lat, lng: result.lng } : null
+    );
+  }
+
   const load = useCallback(async () => {
     const res = await authedFetch(`/api/shows/${id}`);
     if (res.ok) setShow(await res.json());
@@ -131,6 +156,11 @@ export default function EventScreen() {
     setEditNotes(current.notes ?? '');
     setEditVenueContactName(current.venueContactName ?? '');
     setEditVenueContactEmail(current.venueContactEmail ?? '');
+    setEditHotelResponsibility(current.hotelResponsibility ?? '');
+    setEditHotelName(current.hotelName ?? '');
+    setEditHotelAddress(current.hotelAddress ?? null);
+    setEditHotelCoords(null);
+    setEditHotelNotes(current.hotelNotes ?? '');
     setPickingDate(false);
     setSaveError(null);
     setEditing(true);
@@ -157,6 +187,12 @@ export default function EventScreen() {
         ...(editType === 'SHOW' && {
           venueContactName: editVenueContactName.trim() || null,
           venueContactEmail: editVenueContactEmail.trim() || null,
+          hotelResponsibility: editHotelResponsibility || null,
+          hotelName: editHotelName.trim() || null,
+          hotelAddress: editHotelAddress,
+          hotelLat: editHotelCoords?.lat,
+          hotelLng: editHotelCoords?.lng,
+          hotelNotes: editHotelNotes.trim() || null,
         }),
       }),
     });
@@ -238,6 +274,16 @@ export default function EventScreen() {
     }
   }
 
+  function getHotelDirections() {
+    if (!show?.hotelName) return;
+    openMapsSearch(
+      show.hotelName,
+      show.hotelLat != null && show.hotelLng != null
+        ? { lat: show.hotelLat, lng: show.hotelLng }
+        : undefined
+    );
+  }
+
   async function updateStatus(status: ShowDetail['status']) {
     setStatusUpdating(true);
     setConfirmingAnyway(false);
@@ -309,6 +355,7 @@ export default function EventScreen() {
   const everyoneAvailable = show.memberCount > 0 && available.length >= show.memberCount;
   const eventNoun = EVENT_NOUN[show.type];
   const Noun = eventNoun[0].toUpperCase() + eventNoun.slice(1);
+  const hasLodging = !!(show.hotelResponsibility || show.hotelName || show.hotelNotes);
 
   return (
     <ThemedView style={styles.container}>
@@ -424,6 +471,53 @@ export default function EventScreen() {
                 </View>
               )}
 
+              {editType === 'SHOW' && (
+                <>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Lodging
+                  </ThemedText>
+                  <View style={styles.chipRow}>
+                    {(
+                      [
+                        { value: '' as const, label: 'Not set' },
+                        { value: 'PROMOTER' as const, label: 'Promoter provides' },
+                        { value: 'BAND' as const, label: 'Band arranges' },
+                      ]
+                    ).map(({ value, label }) => (
+                      <Pressable key={value || 'unset'} onPress={() => setEditHotelResponsibility(value)}>
+                        <View style={[styles.editChip, editHotelResponsibility === value && styles.editChipActive]}>
+                          <ThemedText
+                            type="small"
+                            themeColor={editHotelResponsibility === value ? 'text' : 'textSecondary'}>
+                            {label}
+                          </ThemedText>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <VenueSearch
+                    value={editHotelName}
+                    onValueChange={onHotelChange}
+                    onSelect={onHotelSelect}
+                    placeholder="Search hotels…"
+                    surface="backgroundSelected"
+                  />
+                  {editHotelAddress && (
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.addressText}>
+                      📍 {editHotelAddress}
+                    </ThemedText>
+                  )}
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
+                    placeholder="Confirmation #, check-in notes, etc."
+                    placeholderTextColor={theme.textSecondary}
+                    value={editHotelNotes}
+                    onChangeText={setEditHotelNotes}
+                    multiline
+                  />
+                </>
+              )}
+
               {saveError && <ThemedText style={styles.error}>{saveError}</ThemedText>}
 
               <View style={styles.formButtons}>
@@ -535,6 +629,32 @@ export default function EventScreen() {
                 <ThemedText>${show.guarantee.toFixed(0)} guarantee</ThemedText>
               )}
               {show.notes && <ThemedText>{show.notes}</ThemedText>}
+            </ThemedView>
+          )}
+
+          {!editing && hasLodging && (
+            <ThemedView type="backgroundElement" style={styles.section}>
+              <View style={styles.lodgingHeaderRow}>
+                <ThemedText type="smallBold">🏨 {show.hotelName || 'Lodging'}</ThemedText>
+                {show.hotelResponsibility && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {show.hotelResponsibility === 'PROMOTER' ? 'Promoter provides' : 'Band arranges'}
+                  </ThemedText>
+                )}
+              </View>
+              {show.hotelAddress && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {show.hotelAddress}
+                </ThemedText>
+              )}
+              {show.hotelName && (
+                <Pressable onPress={getHotelDirections} hitSlop={8}>
+                  <ThemedText type="small" style={styles.linkText}>
+                    Get directions ↗
+                  </ThemedText>
+                </Pressable>
+              )}
+              {show.hotelNotes && <ThemedText>{show.hotelNotes}</ThemedText>}
             </ThemedView>
           )}
 
@@ -714,6 +834,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   linkText: { color: '#3c87f7', fontWeight: '600' },
+  lodgingHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   addressText: { marginTop: -Spacing.one },
   title: { fontSize: 24, lineHeight: 30 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.one },

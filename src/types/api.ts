@@ -33,6 +33,7 @@ export interface MeResponse {
 }
 
 export type EventTypeStr = 'SHOW' | 'RECORDING' | 'PRACTICE';
+export type HotelResponsibility = 'PROMOTER' | 'BAND';
 export type ShowStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE' | 'PENDING';
 
@@ -71,6 +72,12 @@ export interface ShowDetail extends Show {
   venueLng: number | null;
   venueContactName: string | null;
   venueContactEmail: string | null;
+  hotelResponsibility: HotelResponsibility | null;
+  hotelName: string | null;
+  hotelAddress: string | null;
+  hotelLat: number | null;
+  hotelLng: number | null;
+  hotelNotes: string | null;
   createdBy: { id: string; name: string | null };
   release: { id: string; title: string } | null;
   /** Total band membership — used for the "X of Y available" confirm/cancel

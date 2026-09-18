@@ -21,7 +21,7 @@ const MAP_HEIGHT = 200;
 // already on the device, so this uses each platform's native maps URL
 // scheme (Apple Maps' `maps://`, Android's `geo:`) to hand off directly
 // to whatever maps app is installed.
-function openMapsSearch(query: string, coords?: { lat: number; lng: number }) {
+export function openMapsSearch(query: string, coords?: { lat: number; lng: number }) {
   const q = encodeURIComponent(query);
   const url = Platform.select({
     // `ll` drops a single labeled pin at that exact point — `sll` is Apple

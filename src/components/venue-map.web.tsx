@@ -6,6 +6,16 @@ import { useTheme } from '@/hooks/use-theme';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
+// Same signature as the native file's openMapsSearch, but there's no
+// native maps app to hand off to on web — always a Google Maps search tab.
+export function openMapsSearch(query: string, coords?: { lat: number; lng: number }) {
+  const q = encodeURIComponent(query);
+  const url = coords
+    ? `https://www.google.com/maps/search/${q}/@${coords.lat},${coords.lng},15z`
+    : `https://www.google.com/maps/search/?api=1&query=${q}`;
+  Linking.openURL(url);
+}
+
 // @rnmapbox/maps is a native module with no meaningful web support, so the
 // Expo web target (used for local testing, see /explore.tsx etc.) gets this
 // lighter fallback instead — same info and Food/Gas links, no map render.
