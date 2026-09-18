@@ -603,15 +603,6 @@ export default function EventScreen() {
 
           {!editing && riderError && <ThemedText style={styles.error}>{riderError}</ThemedText>}
 
-          {!editing && (show.venue || show.city) && (
-            <VenueMap
-              lat={show.venueLat}
-              lng={show.venueLng}
-              label={show.venue || show.city || show.title}
-              address={show.venueAddress}
-            />
-          )}
-
           {!editing && timeline.length > 0 && (
             <ThemedView type="backgroundElement" style={styles.section}>
               {timeline.map((step) => (
@@ -621,6 +612,15 @@ export default function EventScreen() {
                 </View>
               ))}
             </ThemedView>
+          )}
+
+          {!editing && (show.venue || show.city) && (
+            <VenueMap
+              lat={show.venueLat}
+              lng={show.venueLng}
+              label={show.venue || show.city || show.title}
+              address={show.venueAddress}
+            />
           )}
 
           {!editing && (show.guarantee || show.notes) && (
