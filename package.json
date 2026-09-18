@@ -7,6 +7,7 @@
     "@rnmapbox/maps": "^10.3.5",
     "expo": "~57.0.23",
     "expo-calendar": "~57.0.3",
+    "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.18",
     "expo-device": "~57.0.2",
     "expo-font": "~57.0.4",

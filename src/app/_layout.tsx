@@ -34,6 +34,10 @@ function RootNavigator() {
             name="account"
             options={{ headerShown: true, title: 'Account', presentation: 'modal' }}
           />
+          <Stack.Screen
+            name="travel"
+            options={{ headerShown: true, title: 'Travel & Rewards', headerBackTitle: 'Account' }}
+          />
         </Stack.Protected>
         <Stack.Protected guard={!session}>
           <Stack.Screen name="sign-in" />

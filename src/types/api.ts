@@ -82,6 +82,24 @@ export interface ShowDetail extends Show {
   itineraryPhones?: string[];
 }
 
+export type LoyaltyType = 'HOTEL' | 'AIRLINE';
+
+export interface LoyaltyAccount {
+  id: string;
+  type: LoyaltyType;
+  program: string;
+  memberNumber: string;
+}
+
+// Shape returned by GET /api/bands/:id/loyalty — every band member's saved
+// loyalty accounts, for the Travel & Rewards screen's "copy while booking"
+// list.
+export interface BandMemberLoyalty {
+  userId: string;
+  name: string;
+  accounts: LoyaltyAccount[];
+}
+
 export interface MemberUnavailability {
   id: string;
   userId: string;

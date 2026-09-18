@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { SymbolView, type AndroidSymbol, type SFSymbol } from 'expo-symbols';
 
 import { DeleteButton } from '@/components/delete-button';
@@ -277,6 +278,19 @@ export default function AccountScreen() {
             </ThemedView>
           )}
 
+          {activeBandId && (
+            <Pressable onPress={() => router.push('/travel')}>
+              <ThemedView type="backgroundElement" style={[styles.section, styles.navRow]}>
+                <ThemedText type="smallBold">Travel & Rewards</ThemedText>
+                <SymbolView
+                  name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+                  size={14}
+                  tintColor={theme.textSecondary}
+                />
+              </ThemedView>
+            </Pressable>
+          )}
+
           {!pushLoading && (
             <ThemedView type="backgroundElement" style={styles.section}>
               <View style={styles.switchRow}>
@@ -358,6 +372,7 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
   },
   section: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.three },
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   chipRow: { flexDirection: 'row', gap: Spacing.two },
   chip: {
     borderRadius: Spacing.four,
