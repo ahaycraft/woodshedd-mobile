@@ -192,7 +192,7 @@ export default function AvailabilityScreen() {
                     key={show.id}
                     style={[
                       styles.showRow,
-                      needsResponse && [
+                      choosing && [
                         styles.needsResponse,
                         { borderColor: theme.text, borderBottomColor: theme.text },
                       ],
