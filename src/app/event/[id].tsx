@@ -98,6 +98,10 @@ export default function EventScreen() {
   const [editHotelNotes, setEditHotelNotes] = useState('');
   const [emailingRider, setEmailingRider] = useState(false);
   const [riderError, setRiderError] = useState<string | null>(null);
+  const [addingGuests, setAddingGuests] = useState(false);
+  const [guestNames, setGuestNames] = useState('');
+  const [savingGuests, setSavingGuests] = useState(false);
+  const [guestError, setGuestError] = useState<string | null>(null);
   const [pickingDate, setPickingDate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -268,14 +272,41 @@ export default function EventScreen() {
         setRiderError('No rider set yet — add one from the Account screen.');
         return;
       }
+      const body = show.guestList ? `${band.rider}\n\nGuest List:\n${show.guestList}` : band.rider;
       await MailComposer.composeAsync({
         recipients: [show.venueContactEmail],
         subject: `${band.name} — Rider for ${show.title}`,
-        body: band.rider,
+        body,
       });
     } finally {
       setEmailingRider(false);
     }
+  }
+
+  async function saveGuests() {
+    if (!guestNames.trim()) return;
+    setSavingGuests(true);
+    setGuestError(null);
+    const res = await authedFetch(`/api/shows/${id}/guests`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names: guestNames }),
+    });
+    setSavingGuests(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setGuestError(body.error || "Couldn't save");
+      return;
+    }
+    setGuestNames('');
+    setAddingGuests(false);
+    await load();
+  }
+
+  function cancelAddGuests() {
+    setAddingGuests(false);
+    setGuestNames('');
+    setGuestError(null);
   }
 
   function getHotelDirections() {
@@ -759,6 +790,56 @@ export default function EventScreen() {
               </>
             )}
           </ThemedView>
+
+          {!editing && (
+            <ThemedView type="backgroundElement" style={styles.section}>
+              <View style={styles.statusControlsHeader}>
+                <ThemedText type="smallBold">Guest List</ThemedText>
+                {!addingGuests && (
+                  <Pressable onPress={() => setAddingGuests(true)}>
+                    <ThemedText type="small" style={styles.linkText}>
+                      Add guests
+                    </ThemedText>
+                  </Pressable>
+                )}
+              </View>
+
+              {show.guestList ? (
+                <ThemedText>{show.guestList}</ThemedText>
+              ) : (
+                !addingGuests && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    No guests added yet.
+                  </ThemedText>
+                )
+              )}
+
+              {addingGuests && (
+                <>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: theme.backgroundSelected, color: theme.text }]}
+                    placeholder={'One name per line, e.g.\nJane Smith\nJohn Doe'}
+                    placeholderTextColor={theme.textSecondary}
+                    value={guestNames}
+                    onChangeText={setGuestNames}
+                    multiline
+                  />
+                  {guestError && <ThemedText style={styles.error}>{guestError}</ThemedText>}
+                  <View style={styles.formButtons}>
+                    <Pressable onPress={cancelAddGuests} style={styles.cancelButton}>
+                      <ThemedText>Cancel</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      disabled={savingGuests || !guestNames.trim()}
+                      onPress={saveGuests}
+                      style={[styles.saveButton, (savingGuests || !guestNames.trim()) && styles.saveButtonDisabled]}>
+                      <ThemedText style={styles.saveButtonText}>{savingGuests ? 'Adding…' : 'Add'}</ThemedText>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </ThemedView>
+          )}
 
           {!editing && canManageEvent && (
             <ThemedView type="backgroundElement" style={styles.section}>

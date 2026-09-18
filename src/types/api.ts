@@ -78,6 +78,9 @@ export interface ShowDetail extends Show {
   hotelLat: number | null;
   hotelLng: number | null;
   hotelNotes: string | null;
+  // Free text, appended to via POST /api/shows/:id/guests rather than
+  // edited in place — see that endpoint's comment on the backend.
+  guestList: string | null;
   createdBy: { id: string; name: string | null };
   release: { id: string; title: string } | null;
   /** Total band membership — used for the "X of Y available" confirm/cancel
