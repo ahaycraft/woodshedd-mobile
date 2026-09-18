@@ -827,8 +827,11 @@ const styles = StyleSheet.create({
   header: { gap: Spacing.one },
   quickActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   quickActionButton: {
+    flexGrow: 1,
+    flexBasis: '45%',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: Spacing.one,
     borderRadius: Spacing.four,
     paddingHorizontal: Spacing.three,
