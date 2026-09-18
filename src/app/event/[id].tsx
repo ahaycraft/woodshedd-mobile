@@ -634,7 +634,14 @@ export default function EventScreen() {
 
           {!editing && hasLodging && (
             <ThemedView type="backgroundElement" style={styles.section}>
-              <ThemedText type="smallBold">🏨 Lodging</ThemedText>
+              <View style={styles.lodgingTitleRow}>
+                <SymbolView
+                  name={{ ios: 'bed.double.fill', android: 'hotel', web: 'hotel' }}
+                  size={16}
+                  tintColor={theme.text}
+                />
+                <ThemedText type="smallBold">Lodging</ThemedText>
+              </View>
               {show.hotelResponsibility && (
                 <ThemedText type="small" themeColor="textSecondary">
                   {show.hotelResponsibility === 'PROMOTER' ? 'Promoter provides' : 'Band arranges'}
@@ -833,6 +840,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   linkText: { color: '#3c87f7', fontWeight: '600' },
+  lodgingTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
   addressText: { marginTop: -Spacing.one },
   title: { fontSize: 24, lineHeight: 30 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.one },
