@@ -634,14 +634,12 @@ export default function EventScreen() {
 
           {!editing && hasLodging && (
             <ThemedView type="backgroundElement" style={styles.section}>
-              <View style={styles.lodgingHeaderRow}>
-                <ThemedText type="smallBold">🏨 {show.hotelName || 'Lodging'}</ThemedText>
-                {show.hotelResponsibility && (
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {show.hotelResponsibility === 'PROMOTER' ? 'Promoter provides' : 'Band arranges'}
-                  </ThemedText>
-                )}
-              </View>
+              {show.hotelResponsibility && (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {show.hotelResponsibility === 'PROMOTER' ? 'Promoter provides' : 'Band arranges'}
+                </ThemedText>
+              )}
+              <ThemedText type="smallBold">🏨 {show.hotelName || 'Lodging'}</ThemedText>
               {show.hotelAddress && (
                 <ThemedText type="small" themeColor="textSecondary">
                   {show.hotelAddress}
@@ -834,7 +832,6 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   linkText: { color: '#3c87f7', fontWeight: '600' },
-  lodgingHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   addressText: { marginTop: -Spacing.one },
   title: { fontSize: 24, lineHeight: 30 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.one },
